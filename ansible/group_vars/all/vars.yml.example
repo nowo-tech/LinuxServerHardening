@@ -44,6 +44,7 @@ harden_ufw_allow_in: []
 
 harden_fail2ban_bantime: 1h
 harden_fail2ban_maxretry: 5
+# Put your static admin/VPN CIDRs here to reduce Fail2Ban lockout risk
 harden_fail2ban_ignoreip: ""
 
 harden_enable_psad: true
@@ -60,6 +61,10 @@ harden_enable_mfa_role: false
 harden_enable_lynis_mail_report: true
 # Lynis on every harden run is slow; 03-audit.yml forces a run
 harden_lynis_force_run: false
+# Third-party Lynis APT repo is OFF by default (supply-chain gate)
+harden_allow_third_party_lynis_repo: false
+# Optional: pin key fetch when opting into third-party repo
+# harden_cisofy_key_checksum: "sha256:<paste-current-key-hash>"
 
 harden_clamav_scan_paths:
   - /home

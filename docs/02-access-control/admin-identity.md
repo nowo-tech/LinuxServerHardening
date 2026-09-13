@@ -37,10 +37,10 @@ Limit `sudo` to the `elevated` group:
 
 ```bash
 # /etc/sudoers.d/elevated — edit with visudo -f
-%elevated ALL=(ALL:ALL) NOPASSWD:ALL
+%elevated ALL=(ALL:ALL) ALL
 ```
 
-> Lab convenience uses passwordless sudo so Ansible can become root. In stricter environments, require a password or limit commands.
+Lab-only convenience (weaker): `NOPASSWD:ALL` so Ansible can become root without a password prompt. Prefer passworded sudo on anything that matters.
 
 Limit `su`:
 

@@ -83,8 +83,10 @@ cp inventories/lab/hosts.yml.example inventories/lab/hosts.yml
 # 2) Variables + Vault secrets
 cp group_vars/all/vars.yml.example group_vars/all/vars.yml
 cp group_vars/all/vault.yml.example group_vars/all/vault.yml
-# Lab tip: set harden_passwordless_sudo: true so become is easier
+# Prefer passworded sudo in production (default). For disposable labs only:
+# harden_passwordless_sudo: true
 ansible-vault encrypt group_vars/all/vault.yml
+# Before harden: set harden_fail2ban_ignoreip to your admin/VPN CIDRs
 
 # 3) Bootstrap admin user + SSH key (as root once)
 ansible-playbook -i inventories/lab/hosts.bootstrap.yml playbooks/01-bootstrap.yml \

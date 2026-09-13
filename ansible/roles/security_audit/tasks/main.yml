@@ -1,13 +1,27 @@
 ---
-- name: Try Lynis from distribution repositories
+- name: Install Lynis from Debian repositories only (default)
   ansible.builtin.apt:
     name: lynis
     state: present
   register: lynis_distro
   ignore_errors: true
 
-- name: Install Lynis from Cisofy community repository
-  when: lynis_distro is failed
+- name: Fail clearly when Lynis is missing and third-party repos are disabled
+  ansible.builtin.assert:
+    that:
+      - lynis_distro is succeeded
+    fail_msg: >-
+      Lynis is not available from Debian mirrors. Refusing to add a third-party
+      APT repository by default. Set harden_allow_third_party_lynis_repo=true
+      only if you explicitly trust that supply chain, or install lynis yourself.
+  when:
+    - lynis_distro is failed
+    - not (harden_allow_third_party_lynis_repo | default(false) | bool)
+
+- name: Install Lynis from Cisofy community repository (explicit opt-in)
+  when:
+    - lynis_distro is failed
+    - harden_allow_third_party_lynis_repo | default(false) | bool
   block:
     - name: Install gpg
       ansible.builtin.apt:
@@ -19,6 +33,7 @@
         url: https://packages.cisofy.com/keys/cisofy-software-public.key
         dest: /usr/share/keyrings/cisofy-archive-keyring.asc
         mode: "0644"
+        checksum: "{{ harden_cisofy_key_checksum | default(omit) }}"
 
     - name: Dearmor Cisofy key
       ansible.builtin.command: >-
@@ -42,15 +57,17 @@
         update_cache: true
 
 - name: Run Lynis system audit
-  when: harden_lynis_force_run | default(true) | bool
+  when: harden_lynis_force_run | default(false) | bool
   ansible.builtin.command: lynis audit system --quick
   register: lynis_run
   changed_when: false
   failed_when: false
+  check_mode: false
 
 - name: Mail Lynis report when enabled
   when:
     - harden_enable_lynis_mail_report | bool
+    - harden_lynis_force_run | default(false) | bool
     - lynis_run is defined
   ansible.builtin.shell: |
     set -euo pipefail
@@ -61,3 +78,4 @@
   args:
     executable: /bin/bash
   changed_when: false
+  no_log: true

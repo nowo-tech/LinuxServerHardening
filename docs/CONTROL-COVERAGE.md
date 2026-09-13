@@ -35,7 +35,8 @@ Legend: **A** = automated (on by default) · **F** = automated behind a flag (of
 | auditd identity watches | D | A | Focused rules |
 | logwatch digests | D | A | |
 | Lynis on harden apply | D | — | Off by default (`harden_lynis_force_run`) |
-| Lynis via `03-audit.yml` | D | A | Forces a run |
+| Lynis via `03-audit.yml` | D | A | Forces a run; Debian packages only by default |
+| Third-party Lynis APT repo | D | F | `harden_allow_third_party_lynis_repo` — supply-chain opt-in |
 | Listening sockets review (`ss`) | D | — | Ops checklist |
 | hidepid / umask / lock root / GRUB | D | — | Advanced optional |
 | Firejail / deborphan / OSSEC | D | — | Advanced optional |
