@@ -3,7 +3,6 @@
   hosts: hardened_servers
   become: true
   gather_facts: true
-  remote_user: "{{ harden_admin_user }}"
   vars_files:
     - ../group_vars/all/vars.yml
     - ../group_vars/all/vault.yml

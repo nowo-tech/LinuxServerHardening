@@ -1,9 +1,10 @@
 ---
-- name: Install pam_pwquality settings file
+- name: Install pam_pwquality settings
   ansible.builtin.copy:
-    dest: /etc/security/pwquality.conf.d/90-nowo.conf
+    dest: /etc/security/pwquality.conf
     mode: "0644"
     content: |
+      # Managed by Nowo LinuxServerHardening
       minlen = 12
       dcredit = -1
       ucredit = -1

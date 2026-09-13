@@ -1,12 +1,12 @@
 # Ansible automation
 
-Playbooks mirror the documentation layers. Read [../docs/00-start-here.md](../docs/00-start-here.md) before the first run. See [../docs/CONTROL-COVERAGE.md](../docs/CONTROL-COVERAGE.md) for what each flag enables.
+Playbooks mirror the documentation layers. Read [../docs/00-start-here.md](../docs/00-start-here.md) and [../docs/CONTROL-COVERAGE.md](../docs/CONTROL-COVERAGE.md) before the first run.
 
 ## Requirements
 
-- Control node: Ansible 2.14+ (collections `ansible.builtin`, `ansible.posix`, `community.general`)
-- Target: Debian 12 or 13 with Python 3
-- Network path from control node to target on SSH
+- Control node: Ansible 2.14+ (`ansible.posix`, `community.general`)
+- Target: **Debian 12 or 13** (asserted in plays)
+- Console/VNC available until key login on the new port is verified
 
 ```bash
 ansible-galaxy collection install -r requirements.yml
@@ -16,68 +16,42 @@ ansible-galaxy collection install -r requirements.yml
 
 ```bash
 cd ansible
+cp inventories/lab/hosts.bootstrap.yml.example inventories/lab/hosts.bootstrap.yml
 cp inventories/lab/hosts.yml.example inventories/lab/hosts.yml
 cp group_vars/all/vars.yml.example group_vars/all/vars.yml
 cp group_vars/all/vault.yml.example group_vars/all/vault.yml
-
-# Edit hosts.yml, vars.yml, then encrypt secrets:
 ansible-vault encrypt group_vars/all/vault.yml
 ```
 
+**Inventory rule:** `ansible_user` in inventory overrides play `remote_user`. Use bootstrap inventory for `01-bootstrap.yml` and runtime inventory for harden/audit.
+
 ## Plays
 
-| Playbook | Runs as | Purpose |
-|----------|---------|---------|
-| `playbooks/01-bootstrap.yml` | `root` | Admin user, groups, SSH key, sudo |
-| `playbooks/02-harden.yml` | admin user | Full baseline (SSH, firewall, detection…) |
-| `playbooks/03-audit.yml` | admin user | Lynis run + optional mail report |
+| Playbook | Inventory | Purpose |
+|----------|-----------|---------|
+| `01-bootstrap.yml` | `hosts.bootstrap.yml` (root) | Admin user, groups, key, sudo |
+| `02-harden.yml` | `hosts.yml` (admin + port) | Baseline hardening |
+| `03-audit.yml` | `hosts.yml` | Lynis report (forces audit run) |
+
+## Safer defaults
+
+Passwordless sudo, automatic reboot, PSAD auto-block, ClamAV, AIDE, and chkrootkit are **off** unless you opt in. See `group_vars/all/vars.yml.example`.
 
 ## Tags
 
-```bash
-ansible-playbook -i inventories/lab/hosts.yml playbooks/02-harden.yml \
-  --ask-vault-pass --tags firewall,ssh,ntp
-```
+`packages`, `ntp`, `sysctl`, `ssh`, `mfa`, `passwords`, `updates`, `firewall`, `ids`, `mail`, `malware`, `integrity`, `chkrootkit`, `aide`, `auditd`, `logwatch`, `lynis`.
 
-Tags include: `packages`, `ntp`, `sysctl`, `ssh`, `mfa`, `passwords`, `updates`, `firewall`, `ids`, `mail`, `malware`, `integrity`, `chkrootkit`, `aide`, `auditd`, `logwatch`, `lynis`.
+## Check mode
 
-## Feature flags (`vars.yml`)
-
-| Variable | Default | Effect |
-|----------|---------|--------|
-| `harden_enable_mfa_role` | `false` | Install TOTP PAM wiring |
-| `harden_ssh_mfa_enable` | `false` | Enforce `publickey,keyboard-interactive` |
-| `harden_enable_aide` | `true` | AIDE init + daily cron |
-| `harden_enable_logwatch` | `true` | Daily HTML mail digest |
-| `harden_enable_chkrootkit` | `true` | chkrootkit package + daily |
-| `harden_auto_reboot` | `true` | Unattended reboot after security updates |
-
-## Safety
-
-1. Snapshot the VM.
-2. Keep provider console open.
-3. Run bootstrap, then verify key login.
-4. Run harden with `--check` first if you want a dry run (some tasks are not fully check-mode safe).
+`--check` is best-effort. Tasks that shell out (moduli trim, aideinit, lynis, psad signature update, test mail) are not fully check-safe.
 
 ## Directory map
 
 ```text
 roles/
-  bootstrap/          packages needed early
-  admin_user/         groups + user + key + sudo/su
-  time_sync/          systemd-timesyncd or ntp
-  host_sysctl/        network/kernel sysctl drop-in
-  ssh_hardening/      sshd drop-in + moduli + crypto
-  ssh_mfa/            optional TOTP PAM
-  password_policy/    pam_pwquality
-  auto_updates/       unattended-upgrades + apticron
-  firewall_stack/     ufw + fail2ban + psad + iptables log
-  outbound_mail/      msmtp
-  malware_scan/       clamav
-  integrity_checks/   rkhunter
-  rootkit_extra/      chkrootkit
-  file_integrity/     AIDE
-  audit_framework/    auditd rules
-  log_digest/         logwatch
-  security_audit/     lynis
+  bootstrap/ admin_user/ time_sync/ host_sysctl/
+  ssh_hardening/ ssh_mfa/ password_policy/ auto_updates/
+  firewall_stack/ outbound_mail/
+  malware_scan/ integrity_checks/ rootkit_extra/ file_integrity/
+  audit_framework/ log_digest/ security_audit/
 ```

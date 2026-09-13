@@ -1,6 +1,11 @@
-# Secrets and local inventory
+# Secrets and local inventory / overrides (never commit)
+ansible/inventories/**/hosts.yml
+ansible/inventories/**/hosts.bootstrap.yml
+!ansible/inventories/**/*.example
 ansible/inventories/**/*.vault.yml
+ansible/group_vars/**/vars.yml
 ansible/group_vars/**/vault.yml
+!ansible/group_vars/**/*.example
 ansible/group_vars/**/*secret*
 *.vault
 *.pem

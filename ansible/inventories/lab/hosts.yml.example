@@ -1,9 +1,11 @@
+# Runtime inventory — after bootstrap, connect as the admin user
 all:
   children:
     hardened_servers:
       hosts:
         lab-debian:
           ansible_host: 203.0.113.10
-          # bootstrap play uses root; harden play overrides to harden_admin_user
-          ansible_user: root
+          ansible_user: admin
+          ansible_port: 2222
           ansible_python_interpreter: /usr/bin/python3
+          # ansible_ssh_private_key_file: ~/.ssh/lab_ed25519

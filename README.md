@@ -1,10 +1,9 @@
 # Linux Server Hardening
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![CI](https://github.com/nowo-tech/LinuxServerHardening/actions/workflows/ci.yml/badge.svg)](https://github.com/nowo-tech/LinuxServerHardening/actions/workflows/ci.yml)
 [![Ansible](https://img.shields.io/badge/Ansible-2.14%2B-red?logo=ansible)](https://docs.ansible.com/)
 [![Debian](https://img.shields.io/badge/Debian-12%20%7C%2013-A81D33?logo=debian)](https://www.debian.org/)
-
-> Star the repo if it helps you ship safer servers. Feedback and PRs are welcome.
 
 **Linux Server Hardening** is a Nowo Tech learning kit: a layered security guide plus Ansible automation you can run on a fresh Debian host.
 
@@ -76,30 +75,31 @@ ansible/              Automation that mirrors the layers
 git clone https://github.com/nowo-tech/LinuxServerHardening.git
 cd LinuxServerHardening/ansible
 
-# 1) Copy inventory and fill host IP
+# 1) Inventories: bootstrap (root) vs runtime (admin + new SSH port)
+cp inventories/lab/hosts.bootstrap.yml.example inventories/lab/hosts.bootstrap.yml
 cp inventories/lab/hosts.yml.example inventories/lab/hosts.yml
+# Edit both: set ansible_host; align ansible_user/port in hosts.yml with vars
 
-# 2) Copy variables; put secrets in Ansible Vault
+# 2) Variables + Vault secrets
 cp group_vars/all/vars.yml.example group_vars/all/vars.yml
 cp group_vars/all/vault.yml.example group_vars/all/vault.yml
+# Lab tip: set harden_passwordless_sudo: true so become is easier
 ansible-vault encrypt group_vars/all/vault.yml
 
 # 3) Bootstrap admin user + SSH key (as root once)
-ansible-playbook -i inventories/lab/hosts.yml playbooks/01-bootstrap.yml \
+ansible-playbook -i inventories/lab/hosts.bootstrap.yml playbooks/01-bootstrap.yml \
   --ask-vault-pass --ask-pass
 
-# 4) Apply hardening (as the new admin user)
+# 4) Harden as the new admin user (runtime inventory)
 ansible-playbook -i inventories/lab/hosts.yml playbooks/02-harden.yml \
-  --ask-vault-pass --key-file ~/.ssh/id_ed25519
+  --ask-vault-pass --ask-become-pass --key-file ~/.ssh/lab_ed25519
 ```
 
-Re-runs after the SSH port change:
+Re-runs (runtime inventory already sets `ansible_port`):
 
 ```bash
 ansible-playbook -i inventories/lab/hosts.yml playbooks/02-harden.yml \
-  --ask-vault-pass \
-  -e ansible_port=2222 \
-  --key-file ~/.ssh/id_ed25519
+  --ask-vault-pass --ask-become-pass --key-file ~/.ssh/lab_ed25519
 ```
 
 ## Quick start (manual learning path)
@@ -115,12 +115,13 @@ If you prefer to learn by hand before automating:
 
 | Choice | Reason |
 |--------|--------|
-| Debian-focused examples | Stable packaging, clear systemd story, common VPS image |
+| Debian-focused examples | Validated on Debian 12/13 (asserted in plays) |
 | Ansible Vault for secrets | Passwords and SMTP tokens must not live in git history |
+| Safer production defaults | No NOPASSWD, no auto-reboot, no PSAD auto-block unless opted in |
 | Default-deny firewall (in and out) | Limits both inbound scanners and unexpected C2 egress |
 | Key-only SSH, no root login | Removes the highest-value, most-probed credentials |
 | Security-only unattended upgrades | Patches critical CVEs without surprise feature bumps |
-| Separate bootstrap vs harden plays | Avoids chicken-and-egg lockouts during first connect |
+| Separate bootstrap vs runtime inventories | Avoids `ansible_user: root` sticking on harden plays |
 
 ## Safety contract
 

@@ -1,0 +1,6 @@
+---
+- name: Rebuild aliases
+  ansible.builtin.command: newaliases
+  register: newaliases_result
+  changed_when: false
+  failed_when: false

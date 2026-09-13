@@ -1,0 +1,9 @@
+# Bootstrap inventory — connect as root once
+all:
+  children:
+    hardened_servers:
+      hosts:
+        lab-debian:
+          ansible_host: 203.0.113.10
+          ansible_user: root
+          ansible_python_interpreter: /usr/bin/python3

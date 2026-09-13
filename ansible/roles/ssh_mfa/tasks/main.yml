@@ -4,18 +4,27 @@
     name: libpam-google-authenticator
     state: present
 
-- name: Wire TOTP into sshd PAM stack (nullok until enrolled)
+- name: Wire TOTP into sshd PAM stack
   ansible.builtin.lineinfile:
     path: /etc/pam.d/sshd
+    regexp: 'pam_google_authenticator\.so'
     insertafter: '^@include common-auth'
-    line: 'auth required pam_google_authenticator.so nullok'
+    line: "auth required pam_google_authenticator.so{{ ' nullok' if harden_ssh_mfa_nullok | default(true) | bool else '' }}"
     state: present
   notify: Reload ssh
 
-- name: Remind operator to enrol TOTP interactively
+- name: Refuse enforced MFA while nullok remains enabled
+  ansible.builtin.assert:
+    that:
+      - not (harden_ssh_mfa_nullok | bool)
+    fail_msg: >-
+      harden_ssh_mfa_enable=true requires harden_ssh_mfa_nullok=false after every
+      admin has enrolled with google-authenticator.
+  when: harden_ssh_mfa_enable | bool
+
+- name: Remind operator about interactive enrolment
   ansible.builtin.debug:
     msg: >-
-      MFA packages and PAM are ready. Each admin must run
-      `google-authenticator` once, store scratch codes offline,
-      then remove `nullok` from /etc/pam.d/sshd and set
-      harden_ssh_mfa_enable=true so AuthenticationMethods enforces key+TOTP.
+      Each admin must run `google-authenticator` once and store scratch codes offline.
+      Then set harden_ssh_mfa_nullok=false and harden_ssh_mfa_enable=true.
+  when: harden_ssh_mfa_nullok | bool

@@ -60,4 +60,4 @@ rm -f /etc/msmtprc
 
 ## Next
 
-[continuous-review.md](continuous-review.md)
+[log-digests.md](log-digests.md)

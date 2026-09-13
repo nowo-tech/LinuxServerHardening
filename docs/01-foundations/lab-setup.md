@@ -39,15 +39,15 @@ ansible --version
 
 ### Inventory sketch
 
+Use **two** inventories. `ansible_user` in inventory wins over play `remote_user`, so a leftover `root` entry breaks harden/audit plays.
+
 ```yaml
-# ansible/inventories/lab/hosts.yml
-all:
-  children:
-    hardened_servers:
-      hosts:
-        lab-debian:
-          ansible_host: 203.0.113.10
-          ansible_user: root   # only for bootstrap play
+# inventories/lab/hosts.bootstrap.yml  — first run only
+ansible_user: root
+
+# inventories/lab/hosts.yml  — after bootstrap
+ansible_user: admin
+ansible_port: 2222
 ```
 
 ## Why

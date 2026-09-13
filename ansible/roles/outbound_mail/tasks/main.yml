@@ -3,9 +3,9 @@
   ansible.builtin.template:
     src: msmtprc.j2
     dest: /etc/msmtprc
-    mode: "0640"
+    mode: "0600"
     owner: root
-    group: msmtp
+    group: root
 
 - name: Map root mail to alert inbox
   ansible.builtin.lineinfile:
@@ -13,6 +13,7 @@
     regexp: '^root:'
     line: "root: {{ harden_mail_to }}"
     create: true
+  notify: Rebuild aliases
 
 - name: Map default alias
   ansible.builtin.lineinfile:
@@ -20,6 +21,7 @@
     regexp: '^default:'
     line: "default: {{ harden_mail_to }}"
     create: true
+  notify: Rebuild aliases
 
 - name: Point mail(1) at msmtp
   ansible.builtin.lineinfile:
@@ -28,11 +30,21 @@
     line: 'set sendmail="/usr/bin/msmtp -t"'
     create: true
 
+- name: Flush handlers so aliases rebuild before the test mail
+  ansible.builtin.meta: flush_handlers
+
 - name: Send bootstrap test message
-  ansible.builtin.shell: |
-    echo "LinuxServerHardening mail path is working on {{ ansible_hostname }}" \
-      | mail -s "[{{ ansible_hostname }}] mail path ok" {{ harden_mail_to }}
+  ansible.builtin.command: >
+    mail -s "[{{ ansible_hostname }}] mail path ok" {{ harden_mail_to }}
   args:
-    executable: /bin/bash
+    stdin: "LinuxServerHardening mail path is working on {{ ansible_hostname }}"
+  register: mail_test
   changed_when: false
   failed_when: false
+  check_mode: false
+
+- name: Surface mail test outcome
+  ansible.builtin.debug:
+    msg: >-
+      Test mail exit code {{ mail_test.rc }}.
+      If non-zero, fix SMTP/Vault/UFW outbound before trusting IDS alerts.

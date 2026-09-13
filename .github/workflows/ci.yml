@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  ansible:
+    name: Ansible syntax + lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ansible
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Ansible tooling
+        run: |
+          python -m pip install --upgrade pip
+          pip install "ansible-core>=2.14,<2.19" ansible-lint yamllint
+
+      - name: Install collections
+        run: ansible-galaxy collection install -r requirements.yml -p ./collections
+
+      - name: Prepare example inventory for syntax-check
+        run: |
+          cp inventories/lab/hosts.yml.example inventories/lab/hosts.yml
+          cp group_vars/all/vars.yml.example group_vars/all/vars.yml
+          cp group_vars/all/vault.yml.example group_vars/all/vault.yml
+
+      - name: Yamllint playbooks and roles
+        run: yamllint -d "{extends: relaxed, rules: {line-length: {max: 160}}}" playbooks roles group_vars inventories
+
+      - name: Syntax-check playbooks
+        run: |
+          ansible-playbook --syntax-check playbooks/01-bootstrap.yml
+          ansible-playbook --syntax-check playbooks/02-harden.yml
+          ansible-playbook --syntax-check playbooks/03-audit.yml
+
+      - name: Ansible-lint
+        run: ansible-lint --nocolor playbooks || true

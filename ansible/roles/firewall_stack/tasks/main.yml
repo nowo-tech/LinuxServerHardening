@@ -46,8 +46,9 @@
     insertbefore: "^COMMIT"
     marker: "# {mark} NOWO IPTABLES LOGGING"
     block: |
-      -A INPUT -j LOG --log-tcp-options --log-prefix "[IPTABLES] "
-      -A FORWARD -j LOG --log-tcp-options --log-prefix "[IPTABLES] "
+      # Rate-limited so PSAD gets signal without filling the disk
+      -A INPUT -m limit --limit 2/min --limit-burst 5 -j LOG --log-tcp-options --log-prefix "[IPTABLES] "
+      -A FORWARD -m limit --limit 2/min --limit-burst 5 -j LOG --log-tcp-options --log-prefix "[IPTABLES] "
   notify: Reload ufw
 
 - name: Log traffic in UFW before6.rules for IDS consumers
@@ -56,8 +57,8 @@
     insertbefore: "^COMMIT"
     marker: "# {mark} NOWO IPTABLES LOGGING"
     block: |
-      -A INPUT -j LOG --log-tcp-options --log-prefix "[IPTABLES] "
-      -A FORWARD -j LOG --log-tcp-options --log-prefix "[IPTABLES] "
+      -A INPUT -m limit --limit 2/min --limit-burst 5 -j LOG --log-tcp-options --log-prefix "[IPTABLES] "
+      -A FORWARD -m limit --limit 2/min --limit-burst 5 -j LOG --log-tcp-options --log-prefix "[IPTABLES] "
   notify: Reload ufw
 
 - name: Route iptables-tagged logs to a dedicated file
@@ -125,9 +126,9 @@
     - { regexp: '^EMAIL_ADDRESSES', line: "EMAIL_ADDRESSES {{ harden_mail_to }};" }
     - { regexp: '^HOSTNAME', line: "HOSTNAME {{ ansible_hostname }};" }
     - { regexp: '^ENABLE_PSADWATCHD', line: "ENABLE_PSADWATCHD Y;" }
-    - { regexp: '^ENABLE_AUTO_IDS ', line: "ENABLE_AUTO_IDS Y;" }
-    - { regexp: '^ENABLE_AUTO_IDS_EMAILS', line: "ENABLE_AUTO_IDS_EMAILS Y;" }
-    - { regexp: '^AUTO_IDS_DANGER_LEVEL', line: "AUTO_IDS_DANGER_LEVEL 3;" }
+    - { regexp: '^ENABLE_AUTO_IDS ', line: "ENABLE_AUTO_IDS {{ 'Y' if harden_psad_auto_ids | bool else 'N' }};" }
+    - { regexp: '^ENABLE_AUTO_IDS_EMAILS', line: "ENABLE_AUTO_IDS_EMAILS {{ 'Y' if harden_psad_auto_ids | bool else 'N' }};" }
+    - { regexp: '^AUTO_IDS_DANGER_LEVEL', line: "AUTO_IDS_DANGER_LEVEL {{ harden_psad_danger_level }};" }
     - { regexp: '^EXPECT_TCP_OPTIONS', line: "EXPECT_TCP_OPTIONS Y;" }
     - { regexp: '^IPT_SYSLOG_FILE', line: "IPT_SYSLOG_FILE /var/log/iptables.log;" }
   notify: Restart psad
@@ -138,6 +139,7 @@
   register: psad_sig
   changed_when: false
   failed_when: false
+  check_mode: false
 
 - name: Ensure PSAD is running
   when: harden_enable_psad | bool

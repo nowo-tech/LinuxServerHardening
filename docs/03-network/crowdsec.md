@@ -51,4 +51,4 @@ systemctl disable --now crowdsec crowdsec-firewall-bouncer
 
 ## Next
 
-[../05-detection/auditing.md](../05-detection/auditing.md)
+[../04-host-baseline/time-sync.md](../04-host-baseline/time-sync.md)

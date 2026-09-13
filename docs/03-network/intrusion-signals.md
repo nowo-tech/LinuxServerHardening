@@ -88,4 +88,4 @@ systemctl stop psad
 
 ## Next
 
-[../04-host-baseline/updates-and-passwords.md](../04-host-baseline/updates-and-passwords.md)
+[docker-and-firewall.md](docker-and-firewall.md)

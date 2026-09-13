@@ -19,7 +19,7 @@ Default OpenSSH on port 22 with password authentication is the most scanned surf
 Create a drop-in file (cleaner than editing the whole `sshd_config`):
 
 ```bash
-# /etc/ssh/sshd_config.d/10-hardening.conf
+# /etc/ssh/sshd_config.d/10-nowo-hardening.conf
 Port 2222
 PermitRootLogin no
 PasswordAuthentication no
@@ -47,7 +47,7 @@ IgnoreRhosts yes
 Compression no
 TCPKeepAlive no
 DebianBanner no
-UseDNS yes
+UseDNS no
 LogLevel VERBOSE
 
 # Prefer strong host keys already present on the host
@@ -113,7 +113,7 @@ sshd -T | egrep 'port|permitrootlogin|passwordauthentication|allowgroups'
 From console:
 
 ```bash
-rm /etc/ssh/sshd_config.d/10-hardening.conf
+rm /etc/ssh/sshd_config.d/10-nowo-hardening.conf
 mv /etc/ssh/moduli.bak /etc/ssh/moduli
 systemctl reload ssh
 ```
