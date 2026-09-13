@@ -47,13 +47,15 @@ flowchart TD
 
 | Topic | Lab (`profiles/lab.yml`) | Production (`profiles/prod.yml`) |
 |-------|--------------------------|----------------------------------|
-| Secrets in Vault | Recommended | Mandatory |
+| Profile required on harden | Yes (`harden_profile: lab`) | Yes (`harden_profile: prod`) |
+| Secrets in Vault | Recommended (no `CHANGE_ME_*`) | Mandatory |
 | Fail2Ban `ignoreip` | Optional | **Required** (real CIDRs, not TEST-NET) |
 | `harden_strict_ops` | Off (soft-fail OK) | On (mail/PSAD/Lynis must work) |
 | Passwordless sudo | Allowed | Off |
 | Auto-reboot after security updates | Allowed | Off / windowed |
 | ClamAV / AIDE / chkrootkit | Often on | Opt-in by load |
 | Default-deny egress | Recommended | Required if you can list needed ports |
+| Harden as root inventory | Refused (override only) | Refused |
 
 ## What “good enough” looks like after day one
 

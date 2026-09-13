@@ -17,12 +17,47 @@
           This kit is validated on Debian 12/13. Other Debian-family distros
           need a porting pass before you trust the defaults.
 
-    - name: Warn when inventory still targets root after bootstrap
-      ansible.builtin.debug:
-        msg: >-
-          You are connected as root. Prefer inventories/lab/hosts.yml with
-          ansible_user={{ harden_admin_user }} and ansible_port={{ harden_ssh_port }}.
-      when: ansible_user | default('') == 'root'
+    - name: Require lab or prod profile overlay
+      ansible.builtin.assert:
+        that:
+          - harden_profile is defined
+          - harden_profile in ['lab', 'prod']
+        fail_msg: >-
+          Pass a profile overlay: -e @profiles/lab.yml (disposable) or
+          -e @profiles/prod.yml (edit ignoreip first).
+
+    - name: Refuse harden play as root unless explicitly allowed
+      ansible.builtin.assert:
+        that:
+          - ansible_user | default('') != 'root'
+        fail_msg: >-
+          Harden expects the runtime inventory (admin user + hardened SSH port).
+          Use hosts.yml after bootstrap, or set harden_allow_root_harden=true
+          only for exceptional recovery.
+      when: not (harden_allow_root_harden | default(false) | bool)
+
+    - name: Refuse vault placeholder secrets
+      ansible.builtin.assert:
+        that:
+          - vault_admin_password is defined
+          - vault_admin_password | length > 0
+          - "'CHANGE_ME' not in (vault_admin_password | string)"
+          - vault_smtp_password is defined
+          - vault_smtp_password | length > 0
+          - "'CHANGE_ME' not in (vault_smtp_password | string)"
+        fail_msg: >-
+          Replace CHANGE_ME_* placeholders in group_vars/all/vault.yml
+          (and re-encrypt with ansible-vault).
+
+    - name: Require MFA role wired before enforcing MFA in sshd
+      ansible.builtin.assert:
+        that:
+          - harden_enable_mfa_role | bool
+          - not (harden_ssh_mfa_nullok | bool)
+        fail_msg: >-
+          harden_ssh_mfa_enable=true requires harden_enable_mfa_role=true and
+          harden_ssh_mfa_nullok=false after every admin has enrolled TOTP.
+      when: harden_ssh_mfa_enable | default(false) | bool
 
     - name: Warn when Fail2Ban has no admin ignoreip allowlist
       ansible.builtin.debug:

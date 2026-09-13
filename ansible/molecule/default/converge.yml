@@ -1,9 +1,11 @@
 ---
-- name: Converge — identity + host baseline smoke
+- name: Converge — packages, identity, SSH, firewall
   hosts: all
   become: true
   gather_facts: true
   vars:
+    harden_profile: lab
+    harden_allow_root_harden: true
     harden_admin_user: molecule
     harden_groups:
       ssh: sshaccess
@@ -13,49 +15,42 @@
     harden_ssh_public_key_path: "{{ playbook_dir }}/files/molecule.pub"
     harden_ssh_port: 2222
     harden_ssh_use_dns: "no"
+    harden_ssh_mfa_enable: false
+    harden_enable_mfa_role: false
+    harden_fail2ban_require_ignoreip: false
+    harden_fail2ban_ignoreip: "127.0.0.1"
+    harden_strict_ops: false
+    harden_enable_psad: true
+    harden_enable_clamav: false
+    harden_enable_rkhunter: false
+    harden_enable_chkrootkit: false
+    harden_enable_aide: false
+    harden_enable_logwatch: false
+    harden_mail_to: molecule@example.com
+    harden_mail_from: molecule@example.com
+    harden_smtp_host: localhost
+    harden_smtp_port: 25
     vault_admin_password: "MoleculeTestPassw0rd!"
-  pre_tasks:
-    - name: Install packages needed for smoke roles
-      ansible.builtin.apt:
-        name:
-          - openssh-server
-          - libpam-pwquality
-        state: present
-        update_cache: true
+    vault_smtp_password: "MoleculeSmtpPassw0rd!"
+    harden_packages:
+      - ca-certificates
+      - curl
+      - fail2ban
+      - libpam-pwquality
+      - openssh-server
+      - psad
+      - rsyslog
+      - ufw
+    harden_ufw_allow_out_ports:
+      - { port: "53", proto: "any", comment: "DNS" }
+      - { port: "80", proto: "tcp", comment: "HTTP" }
+      - { port: "443", proto: "tcp", comment: "HTTPS" }
+      - { port: "43", proto: "tcp", comment: "WHOIS" }
+    harden_ufw_allow_in: []
   roles:
+    - role: bootstrap
     - role: admin_user
     - role: host_sysctl
     - role: password_policy
-
-- name: Deploy sshd drop-in without reloading into a broken state
-  hosts: all
-  become: true
-  gather_facts: false
-  vars:
-    harden_admin_user: molecule
-    harden_groups:
-      ssh: sshaccess
-      sudo: elevated
-      su: switchroot
-    harden_ssh_port: 2222
-    harden_ssh_use_dns: "no"
-    harden_ssh_mfa_enable: false
-  tasks:
-    - name: Write sshd hardening drop-in (validate only)
-      ansible.builtin.copy:
-        dest: /etc/ssh/sshd_config.d/10-nowo-hardening.conf
-        mode: "0644"
-        content: |
-          Port {{ harden_ssh_port }}
-          PermitRootLogin no
-          PasswordAuthentication no
-          PubkeyAuthentication yes
-          AllowGroups {{ harden_groups.ssh }}
-          UseDNS {{ harden_ssh_use_dns }}
-          LogLevel VERBOSE
-      notify: Validate sshd
-
-  handlers:
-    - name: Validate sshd
-      ansible.builtin.command: sshd -t
-      changed_when: false
+    - role: ssh_hardening
+    - role: firewall_stack

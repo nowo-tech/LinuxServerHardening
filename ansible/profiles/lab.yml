@@ -2,6 +2,7 @@
 # Lab overlay — disposable VMs only
 #   ansible-playbook ... -e @profiles/lab.yml
 
+harden_profile: lab
 harden_passwordless_sudo: true
 harden_auto_reboot: true
 harden_enable_clamav: true

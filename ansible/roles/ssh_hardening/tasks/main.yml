@@ -21,10 +21,10 @@
       Port {{ harden_ssh_port }}
       PermitRootLogin no
       PasswordAuthentication no
-      KbdInteractiveAuthentication {{ 'yes' if harden_ssh_mfa_enable | default(false) else 'no' }}
+      KbdInteractiveAuthentication {{ 'yes' if (harden_ssh_mfa_enable | default(false) | bool and harden_enable_mfa_role | default(false) | bool) else 'no' }}
       PubkeyAuthentication yes
       AllowGroups {{ harden_groups.ssh }}
-      {% if harden_ssh_mfa_enable | default(false) %}
+      {% if harden_ssh_mfa_enable | default(false) | bool and harden_enable_mfa_role | default(false) | bool %}
       # Require key then TOTP once MFA is enrolled (see docs)
       AuthenticationMethods publickey,keyboard-interactive
       {% endif %}

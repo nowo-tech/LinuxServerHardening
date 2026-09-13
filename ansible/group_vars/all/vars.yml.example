@@ -1,6 +1,7 @@
 ---
 # Non-secret defaults. Copy to vars.yml and adjust.
 # Prefer safer production defaults; see comments for lab overrides.
+# Always pass -e @profiles/lab.yml or -e @profiles/prod.yml on harden (sets harden_profile).
 
 harden_admin_user: admin
 harden_ssh_port: 2222
@@ -12,6 +13,8 @@ harden_ssh_max_sessions: 3
 harden_ssh_max_startups: "10:30:60"
 # Avoid PTR-dependent auth delays on typical VPS networks
 harden_ssh_use_dns: "no"
+# Exceptional recovery only — harden play refuses root inventory by default
+harden_allow_root_harden: false
 
 harden_groups:
   ssh: sshaccess
@@ -36,6 +39,7 @@ harden_ntp_servers:
 harden_ufw_allow_out_ports:
   - { port: "53", proto: "any", comment: "DNS" }
   - { port: "123", proto: "udp", comment: "NTP" }
+  - { port: "43", proto: "tcp", comment: "WHOIS (Fail2Ban action_mwl)" }
   - { port: "80", proto: "tcp", comment: "HTTP" }
   - { port: "443", proto: "tcp", comment: "HTTPS" }
   - { port: "587", proto: "tcp", comment: "SMTP submission" }

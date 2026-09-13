@@ -53,7 +53,9 @@ flowchart TB
 
 ## Safer defaults
 
-Outside `-e @profiles/lab.yml`, Fail2Ban **requires** a real `harden_fail2ban_ignoreip`, and `harden_strict_ops` turns mail/PSAD/Lynis soft-fails into hard failures.
+`02-harden.yml` **requires** `-e @profiles/lab.yml` or `-e @profiles/prod.yml` (`harden_profile`). It also refuses root inventory (unless `harden_allow_root_harden=true`) and `CHANGE_ME_*` vault placeholders.
+
+Outside lab profile, Fail2Ban **requires** a real `harden_fail2ban_ignoreip`, and `harden_strict_ops` turns mail/PSAD/Lynis soft-fails into hard failures.
 
 ```bash
 # Disposable lab
@@ -61,17 +63,19 @@ ansible-playbook -i inventories/lab/hosts.yml playbooks/02-harden.yml \
   --ask-vault-pass --ask-become-pass -e @profiles/lab.yml
 
 # Production (edit profiles/prod.yml: real ignoreip, not REPLACE_ME)
-ansible-playbook -i inventories/lab/hosts.yml playbooks/02-harden.yml \
+ansible-playbook -i inventories/prod/hosts.yml playbooks/02-harden.yml \
   --ask-vault-pass --ask-become-pass -e @profiles/prod.yml
 ```
 
 | Knob | Default (`vars.yml`) | Lab profile | Prod profile |
 |------|----------------------|-------------|--------------|
+| `harden_profile` | *(unset — harden fails)* | `lab` | `prod` |
 | `harden_fail2ban_require_ignoreip` | `true` | `false` | `true` |
 | `harden_strict_ops` | `true` | `false` | `true` |
 | `harden_passwordless_sudo` | `false` | `true` | `false` |
 | `harden_auto_reboot` | `false` | `true` | `false` |
 | `harden_ssh_keys_exclusive` | `false` | — | `true` |
+| `harden_allow_root_harden` | `false` | — | — |
 
 ## Tags
 
@@ -89,6 +93,8 @@ pip install 'molecule' 'molecule-plugins[docker]'
 molecule test
 ```
 
+Default scenario converges **bootstrap → admin → sysctl → passwords → ssh_hardening → firewall_stack** on Debian 13 Docker (privileged) and verifies UFW active + Fail2Ban jail. Still not a full `02-harden.yml` substitute (no mail/MFA/Lynis).
+
 ## Directory map
 
 ```text
@@ -100,4 +106,6 @@ roles/
   audit_framework/ log_digest/ security_audit/
 profiles/
   lab.yml   prod.yml
+inventories/
+  lab/   prod/
 ```

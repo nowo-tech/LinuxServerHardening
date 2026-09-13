@@ -1,0 +1,11 @@
+# Production bootstrap inventory — first run only (root / provider password)
+# Copy to hosts.bootstrap.yml. After 01-bootstrap.yml succeeds, switch to hosts.yml.
+all:
+  children:
+    hardened_servers:
+      hosts:
+        prod-debian:
+          ansible_host: 203.0.113.20
+          ansible_user: root
+          ansible_python_interpreter: /usr/bin/python3
+          # ansible_ssh_private_key_file: ~/.ssh/id_ed25519

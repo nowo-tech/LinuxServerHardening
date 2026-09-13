@@ -38,4 +38,15 @@ Coverage checklist: [CONTROL-COVERAGE.md](CONTROL-COVERAGE.md)
 
 Automation: [../ansible/README.md](../ansible/README.md)
 
-Diagrams (Mermaid) appear where order matters: kit layers and playbook flow in the [root README](../README.md), anti-lockout SSH path here and in [ssh-service](02-access-control/ssh-service.md), MFA rollout in [ssh-mfa](02-access-control/ssh-mfa.md).
+Diagrams (Mermaid) appear where order matters:
+
+| Topic | File |
+|-------|------|
+| Defense layers + play flow | [root README](../README.md), [ansible/README](../ansible/README.md) |
+| Learning path + anti-lockout | [00-start-here](00-start-here.md) |
+| Bootstrap vs runtime inventory | [lab-setup](01-foundations/lab-setup.md) |
+| SSH cutover sequence | [ssh-service](02-access-control/ssh-service.md) |
+| MFA staged rollout | [ssh-mfa](02-access-control/ssh-mfa.md) |
+| UFW enable order | [firewall](03-network/firewall.md) |
+| Fail2Ban / PSAD signal path | [intrusion-signals](03-network/intrusion-signals.md) |
+| Docs ↔ automation map | [CONTROL-COVERAGE](CONTROL-COVERAGE.md) |

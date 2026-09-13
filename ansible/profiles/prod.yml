@@ -2,6 +2,7 @@
 # Production overlay — replace placeholders before use
 #   ansible-playbook ... -e @profiles/prod.yml
 
+harden_profile: prod
 harden_passwordless_sudo: false
 harden_auto_reboot: false
 harden_psad_auto_ids: false

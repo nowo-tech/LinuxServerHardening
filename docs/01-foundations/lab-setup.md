@@ -41,6 +41,24 @@ ansible --version
 
 Use **two** inventories. `ansible_user` in inventory wins over play `remote_user`, so a leftover `root` entry breaks harden/audit plays.
 
+```mermaid
+flowchart LR
+  subgraph once["Once"]
+    R["hosts.bootstrap.yml<br/>ansible_user: root"]
+    P1["01-bootstrap.yml"]
+    R --> P1
+  end
+  subgraph day2["Day-2+"]
+    A["hosts.yml<br/>admin + ansible_port"]
+    P2["02-harden.yml"]
+    P3["03-audit.yml"]
+    A --> P2 --> P3
+  end
+  P1 -->|"key login works"| A
+  P2 -.-> Lab["-e @profiles/lab.yml"]
+  P2 -.-> Prod["-e @profiles/prod.yml"]
+```
+
 ```yaml
 # inventories/lab/hosts.bootstrap.yml  — first run only
 ansible_user: root

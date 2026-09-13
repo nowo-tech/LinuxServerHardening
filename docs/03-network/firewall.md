@@ -8,6 +8,18 @@ Without a host firewall, every local service that binds `0.0.0.0` becomes Intern
 
 Install and set default policies **before** enabling:
 
+```mermaid
+flowchart TD
+  I[Install ufw] --> D[Default deny in + out]
+  D --> S[Allow / limit SSH port you use]
+  S --> E[Allow required egress ports]
+  E --> L[ufw logging on]
+  L --> N[ufw enable]
+  N --> V[Second SSH session still works]
+```
+
+Never enable UFW until the SSH port you will keep is already allowed.
+
 ```bash
 apt install -y ufw
 
@@ -21,6 +33,7 @@ ufw limit 2222/tcp comment 'SSH rate-limited'
 # Typical egress allowlist for a web app host
 ufw allow out 53          # DNS (tcp/udp as needed; prefer systemd-resolved patterns)
 ufw allow out 123/udp     # NTP
+ufw allow out 43/tcp      # WHOIS (Fail2Ban action_mwl whois lookups)
 ufw allow out 80/tcp
 ufw allow out 443/tcp
 ufw allow out 587/tcp     # submission for msmtp (adjust to your provider)

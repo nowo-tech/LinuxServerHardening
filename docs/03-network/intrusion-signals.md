@@ -6,6 +6,17 @@ Firewalls drop packets silently. You still want **signals**: repeated auth failu
 
 ## Do
 
+Signal path (order matters — logging before analysis):
+
+```mermaid
+flowchart LR
+  UFW["UFW / iptables<br/>LOG + BLOCK"] --> Log["/var/log/iptables.log<br/>+ auth journals"]
+  Log --> F2B["Fail2Ban<br/>sshd jail → ufw ban"]
+  Log --> PSAD["PSAD<br/>scan patterns → mail"]
+  F2B -.-> Mail[destemail / action_mwl]
+  PSAD -.-> Mail
+```
+
 ### Fail2Ban (application log bans)
 
 ```bash

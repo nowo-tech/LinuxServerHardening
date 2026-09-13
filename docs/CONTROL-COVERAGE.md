@@ -4,6 +4,26 @@ Starting **Debian VPS baseline** — not a compliance certification. Prefer unde
 
 Legend: **A** = automated (on by default) · **F** = automated behind a flag (off by default) · **D** = documented · **—** = intentionally omitted
 
+```mermaid
+flowchart TB
+  subgraph docs["Documented path"]
+    D1[Foundations] --> D2[Access]
+    D2 --> D3[Network]
+    D3 --> D4[Host]
+    D4 --> D5[Detection]
+    D5 --> D6[Ops]
+    D6 --> D7[Advanced — often D only]
+  end
+  subgraph auto["Ansible"]
+    B[01-bootstrap] --> H[02-harden A/F roles]
+    H --> A[03-audit Lynis]
+  end
+  D2 -.-> B
+  D3 -.-> H
+  D5 -.-> H
+  D6 -.-> A
+```
+
 | Control | Docs | Ansible | Notes |
 |---------|------|---------|-------|
 | Threat model & principles | D | — | Layer-0 reading |
@@ -24,8 +44,12 @@ Legend: **A** = automated (on by default) · **F** = automated behind a flag (of
 | Kernel sysctl hardening | D | A | |
 | AppArmor guidance | D | — | Advanced; enforce carefully |
 | UFW default-deny in/out | D | A | |
-| Fail2Ban sshd + mail actions | D | A | Warns if ignoreip empty |
+| Fail2Ban sshd + mail actions | D | A | `action_mwl`; egress includes WHOIS/43 |
 | Fail2Ban ignoreip required | D | A | Default on; lab profile relaxes |
+| Lab / prod profiles | D | A | `harden_profile` asserted on harden |
+| Refuse root harden inventory | D | A | Override: `harden_allow_root_harden` |
+| Refuse vault `CHANGE_ME_*` | D | A | Asserted on harden |
+| MFA coupling (role + nullok) | D | A | Asserted before sshd MFA enforce |
 | Strict ops (mail/psad/lynis) | D | A | `harden_strict_ops` default on; lab off |
 | PSAD (detect / alert) | D | A | LOG on `ufw-before-*` chains |
 | PSAD AUTO_IDS (auto-block) | D | F | Opt-in |
@@ -42,7 +66,6 @@ Legend: **A** = automated (on by default) · **F** = automated behind a flag (of
 | logwatch digests | D | A | |
 | Lynis via `03-audit.yml` | D | A | Debian packages by default |
 | Third-party Lynis APT repo | D | F | Supply-chain opt-in |
-| Lab / prod profiles | D | A | Required in quick start |
 | hidepid / umask / lock root / GRUB | D | — | Advanced optional |
 | Firejail / deborphan / OSSEC | D | — | Advanced optional |
 | Exim4 / duress / rng-tools | — | — | Omitted on purpose |

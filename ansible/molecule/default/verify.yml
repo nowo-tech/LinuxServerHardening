@@ -1,5 +1,5 @@
 ---
-- name: Verify smoke baseline
+- name: Verify SSH + firewall harden smoke
   hosts: all
   become: true
   gather_facts: false
@@ -19,10 +19,20 @@
         path: /etc/ssh/sshd_config.d/10-nowo-hardening.conf
       register: sshd_dropin
 
-    - name: Require drop-in
+    - name: Require drop-in and no MFA AuthenticationMethods when MFA off
       ansible.builtin.assert:
         that:
           - sshd_dropin.stat.exists
+
+    - name: Read sshd drop-in
+      ansible.builtin.slurp:
+        src: /etc/ssh/sshd_config.d/10-nowo-hardening.conf
+      register: sshd_conf
+
+    - name: MFA must stay off in smoke converge
+      ansible.builtin.assert:
+        that:
+          - "'AuthenticationMethods' not in (sshd_conf.content | b64decode)"
 
     - name: Assert sysctl drop-in exists
       ansible.builtin.stat:
@@ -37,3 +47,23 @@
     - name: Validate sshd config
       ansible.builtin.command: sshd -t
       changed_when: false
+
+    - name: UFW must be active after firewall_stack
+      ansible.builtin.command: ufw status
+      register: ufw_status
+      changed_when: false
+
+    - name: Require UFW active
+      ansible.builtin.assert:
+        that:
+          - "'Status: active' in ufw_status.stdout"
+
+    - name: Fail2Ban sshd jail present
+      ansible.builtin.stat:
+        path: /etc/fail2ban/jail.d/sshd-nowo.local
+      register: f2b_jail
+
+    - name: Require Fail2Ban jail
+      ansible.builtin.assert:
+        that:
+          - f2b_jail.stat.exists

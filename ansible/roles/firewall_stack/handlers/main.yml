@@ -1,6 +1,12 @@
 ---
 - name: Reload ufw
-  ansible.builtin.command: ufw reload
+  ansible.builtin.shell: |
+    set -euo pipefail
+    if ufw status 2>/dev/null | head -n1 | grep -qi 'Status: active'; then
+      ufw reload
+    fi
+  args:
+    executable: /bin/bash
   changed_when: false
 
 - name: Restart fail2ban

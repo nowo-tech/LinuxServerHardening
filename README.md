@@ -59,8 +59,9 @@ ansible/
   playbooks/          bootstrap → harden → audit
   roles/              one concern per role
   inventories/lab/    bootstrap vs runtime host files
+  inventories/prod/   production inventory skeletons
   group_vars/         non-secret defaults + vault placeholders
-  profiles/           lab.yml / prod.yml overlays
+  profiles/           lab.yml / prod.yml overlays (required on harden)
 ```
 
 | Path | Purpose |
@@ -110,7 +111,7 @@ ansible-playbook -i inventories/lab/hosts.yml playbooks/02-harden.yml \
 #   -e @profiles/prod.yml
 ```
 
-Without `-e @profiles/lab.yml`, harden **requires** a real `harden_fail2ban_ignoreip` (no empty / TEST-NET / `REPLACE_ME_*` values).
+Without `-e @profiles/lab.yml` or `-e @profiles/prod.yml`, harden **fails** (`harden_profile` required). Lab relaxes ignoreip; prod **requires** a real `harden_fail2ban_ignoreip` (no empty / TEST-NET / `REPLACE_ME_*` values). Vault must not contain `CHANGE_ME_*` placeholders.
 
 Re-runs (runtime inventory already sets `ansible_port`):
 
