@@ -27,18 +27,23 @@
     - name: Warn when Fail2Ban has no admin ignoreip allowlist
       ansible.builtin.debug:
         msg: >-
-          harden_fail2ban_ignoreip is empty. A mistyped key or scan from your
-          own IP can ban you. Set admin/VPN CIDRs before production runs
-          (see profiles/prod.yml).
+          harden_fail2ban_ignoreip is empty. Use -e @profiles/lab.yml for
+          disposable labs, or set real admin/VPN CIDRs (profiles/prod.yml).
       when: (harden_fail2ban_ignoreip | default('') | trim) == ''
 
-    - name: Require Fail2Ban ignoreip when enforced
+    - name: Require Fail2Ban ignoreip outside lab relaxations
       ansible.builtin.assert:
         that:
           - (harden_fail2ban_ignoreip | default('') | trim) | length > 0
+          - "'REPLACE_ME' not in (harden_fail2ban_ignoreip | default(''))"
+          - "'203.0.113.' not in (harden_fail2ban_ignoreip | default(''))"
+          - "'198.51.100.' not in (harden_fail2ban_ignoreip | default(''))"
+          - "'192.0.2.' not in (harden_fail2ban_ignoreip | default(''))"
         fail_msg: >-
-          harden_fail2ban_require_ignoreip=true but harden_fail2ban_ignoreip is empty.
-      when: harden_fail2ban_require_ignoreip | default(false) | bool
+          harden_fail2ban_require_ignoreip=true but ignoreip is empty, still
+          REPLACE_ME_*, or a documentation TEST-NET range. Set real CIDRs or
+          pass -e @profiles/lab.yml for disposable VMs.
+      when: harden_fail2ban_require_ignoreip | default(true) | bool
 
   roles:
     - role: bootstrap

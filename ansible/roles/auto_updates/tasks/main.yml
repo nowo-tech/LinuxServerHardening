@@ -40,10 +40,10 @@
     - { regexp: '^EMAIL=', line: 'EMAIL="{{ harden_mail_to }}"' }
     - { regexp: '^NOTIFY_NO_UPDATES=', line: 'NOTIFY_NO_UPDATES="1"' }
 
-- name: Prefer HTML apt-listchanges mail when MTA exists
+- name: Prefer text apt-listchanges output for headless servers
   ansible.builtin.lineinfile:
     path: /etc/apt/listchanges.conf
     regexp: '^frontend='
-    line: 'frontend=pager'
+    line: 'frontend=text'
     create: true
   failed_when: false

@@ -40,33 +40,35 @@
     logging: "on"
   notify: Reload ufw
 
-- name: Log traffic in UFW before.rules for IDS consumers
+- name: Log traffic on UFW before-chains for PSAD (IPv4)
   ansible.builtin.blockinfile:
     path: /etc/ufw/before.rules
     insertbefore: "^COMMIT"
     marker: "# {mark} NOWO IPTABLES LOGGING"
     block: |
-      # Rate-limited so PSAD gets signal without filling the disk
-      -A INPUT -m limit --limit 2/min --limit-burst 5 -j LOG --log-tcp-options --log-prefix "[IPTABLES] "
-      -A FORWARD -m limit --limit 2/min --limit-burst 5 -j LOG --log-tcp-options --log-prefix "[IPTABLES] "
+      # Attach to UFW chains (not raw INPUT) so packets are still evaluated by UFW
+      -A ufw-before-input -m limit --limit 30/min --limit-burst 50 -j LOG --log-tcp-options --log-prefix "[IPTABLES] "
+      -A ufw-before-forward -m limit --limit 30/min --limit-burst 50 -j LOG --log-tcp-options --log-prefix "[IPTABLES] "
   notify: Reload ufw
 
-- name: Log traffic in UFW before6.rules for IDS consumers
+- name: Log traffic on UFW before-chains for PSAD (IPv6)
   ansible.builtin.blockinfile:
     path: /etc/ufw/before6.rules
     insertbefore: "^COMMIT"
     marker: "# {mark} NOWO IPTABLES LOGGING"
     block: |
-      -A INPUT -m limit --limit 2/min --limit-burst 5 -j LOG --log-tcp-options --log-prefix "[IPTABLES] "
-      -A FORWARD -m limit --limit 2/min --limit-burst 5 -j LOG --log-tcp-options --log-prefix "[IPTABLES] "
+      -A ufw6-before-input -m limit --limit 30/min --limit-burst 50 -j LOG --log-tcp-options --log-prefix "[IPTABLES] "
+      -A ufw6-before-forward -m limit --limit 30/min --limit-burst 50 -j LOG --log-tcp-options --log-prefix "[IPTABLES] "
   notify: Reload ufw
 
-- name: Route iptables-tagged logs to a dedicated file
+- name: Route firewall-tagged logs to a dedicated file
   ansible.builtin.copy:
     dest: /etc/rsyslog.d/10-nowo-iptables.conf
     mode: "0644"
     content: |
       :msg, contains, "[IPTABLES] " /var/log/iptables.log
+      & stop
+      :msg, contains, "[UFW BLOCK] " /var/log/iptables.log
       & stop
   notify: Restart rsyslog
 
@@ -87,6 +89,16 @@
               /usr/lib/rsyslog/rsyslog-rotate >/dev/null 2>&1 || true
           endscript
       }
+
+- name: Ensure iptables log file exists for PSAD
+  ansible.builtin.file:
+    path: /var/log/iptables.log
+    state: touch
+    mode: "0640"
+    owner: root
+    group: adm
+    modification_time: preserve
+    access_time: preserve
 
 - name: Install Fail2Ban jail for sshd
   ansible.builtin.copy:
@@ -138,7 +150,8 @@
   ansible.builtin.command: psad --sig-update
   register: psad_sig
   changed_when: false
-  failed_when: false
+  failed_when: >-
+    (harden_strict_ops | default(true) | bool) and (psad_sig.rc | default(1) != 0)
   check_mode: false
 
 - name: Ensure PSAD is running

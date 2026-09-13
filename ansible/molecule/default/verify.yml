@@ -1,5 +1,5 @@
 ---
-- name: Verify admin user exists
+- name: Verify smoke baseline
   hosts: all
   become: true
   gather_facts: false
@@ -13,3 +13,27 @@
       ansible.builtin.assert:
         that:
           - "'sshaccess' in molecule_id.stdout"
+
+    - name: Assert sshd drop-in exists
+      ansible.builtin.stat:
+        path: /etc/ssh/sshd_config.d/10-nowo-hardening.conf
+      register: sshd_dropin
+
+    - name: Require drop-in
+      ansible.builtin.assert:
+        that:
+          - sshd_dropin.stat.exists
+
+    - name: Assert sysctl drop-in exists
+      ansible.builtin.stat:
+        path: /etc/sysctl.d/60-nowo-hardening.conf
+      register: sysctl_dropin
+
+    - name: Require sysctl drop-in
+      ansible.builtin.assert:
+        that:
+          - sysctl_dropin.stat.exists
+
+    - name: Validate sshd config
+      ansible.builtin.command: sshd -t
+      changed_when: false

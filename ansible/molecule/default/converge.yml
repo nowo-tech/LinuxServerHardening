@@ -1,5 +1,5 @@
 ---
-- name: Converge — bootstrap identity only (safe smoke path)
+- name: Converge — identity + host baseline smoke
   hosts: all
   become: true
   gather_facts: true
@@ -11,12 +11,51 @@
       su: switchroot
     harden_passwordless_sudo: true
     harden_ssh_public_key_path: "{{ playbook_dir }}/files/molecule.pub"
+    harden_ssh_port: 2222
+    harden_ssh_use_dns: "no"
     vault_admin_password: "MoleculeTestPassw0rd!"
   pre_tasks:
-    - name: Install openssh-server for identity tasks
+    - name: Install packages needed for smoke roles
       ansible.builtin.apt:
-        name: openssh-server
+        name:
+          - openssh-server
+          - libpam-pwquality
         state: present
         update_cache: true
   roles:
     - role: admin_user
+    - role: host_sysctl
+    - role: password_policy
+
+- name: Deploy sshd drop-in without reloading into a broken state
+  hosts: all
+  become: true
+  gather_facts: false
+  vars:
+    harden_admin_user: molecule
+    harden_groups:
+      ssh: sshaccess
+      sudo: elevated
+      su: switchroot
+    harden_ssh_port: 2222
+    harden_ssh_use_dns: "no"
+    harden_ssh_mfa_enable: false
+  tasks:
+    - name: Write sshd hardening drop-in (validate only)
+      ansible.builtin.copy:
+        dest: /etc/ssh/sshd_config.d/10-nowo-hardening.conf
+        mode: "0644"
+        content: |
+          Port {{ harden_ssh_port }}
+          PermitRootLogin no
+          PasswordAuthentication no
+          PubkeyAuthentication yes
+          AllowGroups {{ harden_groups.ssh }}
+          UseDNS {{ harden_ssh_use_dns }}
+          LogLevel VERBOSE
+      notify: Validate sshd
+
+  handlers:
+    - name: Validate sshd
+      ansible.builtin.command: sshd -t
+      changed_when: false

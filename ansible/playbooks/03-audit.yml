@@ -3,9 +3,25 @@
   hosts: hardened_servers
   become: true
   gather_facts: true
-  vars_files:
-    - ../group_vars/all/vars.yml
-    - ../group_vars/all/vault.yml
+
+  pre_tasks:
+    - name: Load non-secret variables when present
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../group_vars/all/vars.yml"
+      failed_when: false
+
+    - name: Load vault when present
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../group_vars/all/vault.yml"
+      failed_when: false
+
+    - name: Require mail recipient for report mailing
+      ansible.builtin.assert:
+        that:
+          - harden_mail_to is defined
+          - harden_mail_to | length > 0
+        fail_msg: >-
+          Set harden_mail_to in group_vars/all/vars.yml (or -e) before mailing Lynis reports.
 
   roles:
     - role: security_audit

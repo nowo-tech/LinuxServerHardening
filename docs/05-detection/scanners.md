@@ -66,7 +66,7 @@ tail -n 50 /var/log/clamav/nightly.log
 ## Rollback
 
 ```bash
-rm /etc/cron.d/clamav-nightly
+rm /etc/cron.d/nowo-clamav-nightly
 systemctl disable --now clamav-daemon clamav-freshclam
 apt purge -y clamav clamav-daemon rkhunter
 ```

@@ -13,6 +13,8 @@ apt install -y fail2ban
 
 # /etc/fail2ban/jail.local
 [DEFAULT]
+ignoreip = 127.0.0.1/8 ::1 203.0.113.10
+# ↑ put YOUR admin/VPN CIDRs — never leave this empty on a public host
 bantime  = 1h
 findtime = 10m
 maxretry = 5
@@ -24,6 +26,7 @@ action = %(action_mwl)s
 enabled = true
 port = 2222
 backend = systemd
+banaction = ufw
 ```
 
 ```bash
@@ -49,7 +52,7 @@ Ensure UFW logs dropped traffic so PSAD has input. Tune danger levels carefully;
 
 ### Dedicated firewall log file
 
-Route `[IPTABLES]` prefixed UFW logs into `/var/log/iptables.log` via rsyslog, point PSAD at that file, and rotate daily. This keeps scan noise out of the main syslog and improves PSAD signal quality. The Ansible `firewall_stack` role does this automatically.
+Attach rate-limited `LOG` rules to **`ufw-before-input` / `ufw-before-forward`** (and IPv6 equivalents), prefix `[IPTABLES] `, ship them (plus `[UFW BLOCK]`) to `/var/log/iptables.log`, point PSAD `IPT_SYSLOG_FILE` there, and rotate daily. The Ansible `firewall_stack` role does this automatically.
 
 ### CrowdSec (optional alternative)
 

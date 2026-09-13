@@ -33,19 +33,19 @@ ansible-vault encrypt group_vars/all/vault.yml
 | `02-harden.yml` | `hosts.yml` (admin + port) | Baseline hardening |
 | `03-audit.yml` | `hosts.yml` | Lynis report (forces audit run) |
 
-## Profiles (lab vs production)
+## Safer defaults
+
+Outside `-e @profiles/lab.yml`, Fail2Ban **requires** a real `harden_fail2ban_ignoreip`, and `harden_strict_ops` turns mail/PSAD/Lynis soft-fails into hard failures.
 
 ```bash
-# Disposable lab convenience knobs
+# Disposable lab
 ansible-playbook -i inventories/lab/hosts.yml playbooks/02-harden.yml \
   --ask-vault-pass --ask-become-pass -e @profiles/lab.yml
 
-# Explicit production overlay (set ignoreip inside profiles/prod.yml first)
+# Production (edit profiles/prod.yml: real ignoreip, not REPLACE_ME)
 ansible-playbook -i inventories/lab/hosts.yml playbooks/02-harden.yml \
   --ask-vault-pass --ask-become-pass -e @profiles/prod.yml
 ```
-
-See `profiles/lab.yml` and `profiles/prod.yml`.
 
 ## Tags
 

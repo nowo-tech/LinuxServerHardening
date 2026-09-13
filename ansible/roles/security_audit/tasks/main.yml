@@ -3,24 +3,28 @@
   ansible.builtin.apt:
     name: lynis
     state: present
-  register: lynis_distro
-  ignore_errors: true
+  register: lynis_apt
+  failed_when: false
+
+- name: Check whether Lynis package is present
+  ansible.builtin.command: dpkg -s lynis
+  register: lynis_pkg
+  changed_when: false
+  failed_when: false
 
 - name: Fail clearly when Lynis is missing and third-party repos are disabled
   ansible.builtin.assert:
     that:
-      - lynis_distro is succeeded
+      - lynis_pkg.rc | default(1) == 0
     fail_msg: >-
       Lynis is not available from Debian mirrors. Refusing to add a third-party
       APT repository by default. Set harden_allow_third_party_lynis_repo=true
       only if you explicitly trust that supply chain, or install lynis yourself.
-  when:
-    - lynis_distro is failed
-    - not (harden_allow_third_party_lynis_repo | default(false) | bool)
+  when: not (harden_allow_third_party_lynis_repo | default(false) | bool)
 
 - name: Install Lynis from Cisofy community repository (explicit opt-in)
   when:
-    - lynis_distro is failed
+    - lynis_pkg.rc | default(1) != 0
     - harden_allow_third_party_lynis_repo | default(false) | bool
   block:
     - name: Install gpg
@@ -61,7 +65,8 @@
   ansible.builtin.command: lynis audit system --quick
   register: lynis_run
   changed_when: false
-  failed_when: false
+  failed_when: >-
+    (harden_strict_ops | default(true) | bool) and (lynis_run.rc | default(1) != 0)
   check_mode: false
 
 - name: Mail Lynis report when enabled
@@ -69,13 +74,17 @@
     - harden_enable_lynis_mail_report | bool
     - harden_lynis_force_run | default(false) | bool
     - lynis_run is defined
+    - lynis_run.rc | default(1) == 0
   ansible.builtin.shell: |
     set -euo pipefail
     report="/var/log/lynis-report.dat"
     if [ -f "$report" ]; then
-      mail -s "[{{ ansible_hostname }}] Lynis report" {{ harden_mail_to }} < "$report" || true
+      mail -s "[{{ ansible_hostname }}] Lynis report" {{ harden_mail_to }} < "$report"
     fi
   args:
     executable: /bin/bash
+  register: lynis_mail
   changed_when: false
+  failed_when: >-
+    (harden_strict_ops | default(true) | bool) and (lynis_mail.rc | default(1) != 0)
   no_log: true

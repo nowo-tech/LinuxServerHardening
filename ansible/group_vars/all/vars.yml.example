@@ -44,10 +44,12 @@ harden_ufw_allow_in: []
 
 harden_fail2ban_bantime: 1h
 harden_fail2ban_maxretry: 5
-# Put your static admin/VPN CIDRs here to reduce Fail2Ban lockout risk
+# Put your static admin/VPN CIDRs here (required unless using profiles/lab.yml)
 harden_fail2ban_ignoreip: ""
-# Set true in production overlays to refuse empty ignoreip
-harden_fail2ban_require_ignoreip: false
+# Default true: refuse empty/documentation ignoreip. Lab profile sets false.
+harden_fail2ban_require_ignoreip: true
+# When true, mail/psad/lynis soft-fails become hard failures
+harden_strict_ops: true
 
 # When true, authorized_keys is replaced by the single configured key (rotation)
 harden_ssh_keys_exclusive: false

@@ -1,13 +1,10 @@
 ---
-# Soften ansible-lint for a didactic kit; tighten over time.
+# Soften only noise for a didactic kit.
 skip_list:
   - yaml[line-length]
   - name[casing]
-  - risky-shell-pipe
-  - command-instead-of-shell
-  - no-changed-when
-  - ignore-errors
   - experimental
 exclude_paths:
   - collections/
   - profiles/
+  - molecule/

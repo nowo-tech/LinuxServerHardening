@@ -51,7 +51,8 @@
     stdin: "LinuxServerHardening mail path is working on {{ ansible_hostname }}"
   register: mail_test
   changed_when: false
-  failed_when: false
+  failed_when: >-
+    (harden_strict_ops | default(true) | bool) and (mail_test.rc | default(1) != 0)
   check_mode: false
 
 - name: Surface mail test outcome
@@ -59,3 +60,4 @@
     msg: >-
       Test mail exit code {{ mail_test.rc }}.
       If non-zero, fix SMTP/Vault/UFW outbound before trusting IDS alerts.
+  when: not (harden_strict_ops | default(true) | bool)

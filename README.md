@@ -83,27 +83,32 @@ cp inventories/lab/hosts.yml.example inventories/lab/hosts.yml
 # 2) Variables + Vault secrets
 cp group_vars/all/vars.yml.example group_vars/all/vars.yml
 cp group_vars/all/vault.yml.example group_vars/all/vault.yml
-# Prefer passworded sudo in production (default). For disposable labs only:
-#   -e @profiles/lab.yml
-# For production overlays (set ignoreip inside the file first):
-#   -e @profiles/prod.yml
 ansible-vault encrypt group_vars/all/vault.yml
-# Before harden: set harden_fail2ban_ignoreip to your admin/VPN CIDRs
 
 # 3) Bootstrap admin user + SSH key (as root once)
 ansible-playbook -i inventories/lab/hosts.bootstrap.yml playbooks/01-bootstrap.yml \
-  --ask-vault-pass --ask-pass
+  --ask-vault-pass --ask-pass -e @profiles/lab.yml
 
-# 4) Harden as the new admin user (runtime inventory)
+# 4) Harden — pick ONE overlay (required)
+# Lab (disposable VM):
 ansible-playbook -i inventories/lab/hosts.yml playbooks/02-harden.yml \
-  --ask-vault-pass --ask-become-pass --key-file ~/.ssh/lab_ed25519
+  --ask-vault-pass --ask-become-pass --key-file ~/.ssh/lab_ed25519 \
+  -e @profiles/lab.yml
+
+# Production (edit profiles/prod.yml first: real ignoreip, not REPLACE_ME):
+# ansible-playbook -i inventories/lab/hosts.yml playbooks/02-harden.yml \
+#   --ask-vault-pass --ask-become-pass --key-file ~/.ssh/id_ed25519 \
+#   -e @profiles/prod.yml
 ```
+
+Without `-e @profiles/lab.yml`, harden **requires** a real `harden_fail2ban_ignoreip` (no empty / TEST-NET / `REPLACE_ME_*` values).
 
 Re-runs (runtime inventory already sets `ansible_port`):
 
 ```bash
 ansible-playbook -i inventories/lab/hosts.yml playbooks/02-harden.yml \
-  --ask-vault-pass --ask-become-pass --key-file ~/.ssh/lab_ed25519
+  --ask-vault-pass --ask-become-pass --key-file ~/.ssh/lab_ed25519 \
+  -e @profiles/lab.yml
 ```
 
 ## Quick start (manual learning path)

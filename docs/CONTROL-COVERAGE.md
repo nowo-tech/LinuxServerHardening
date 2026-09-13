@@ -25,11 +25,12 @@ Legend: **A** = automated (on by default) · **F** = automated behind a flag (of
 | AppArmor guidance | D | — | Advanced; enforce carefully |
 | UFW default-deny in/out | D | A | |
 | Fail2Ban sshd + mail actions | D | A | Warns if ignoreip empty |
-| Fail2Ban ignoreip required | D | F | `harden_fail2ban_require_ignoreip` |
-| PSAD (detect / alert) | D | A | |
+| Fail2Ban ignoreip required | D | A | Default on; lab profile relaxes |
+| Strict ops (mail/psad/lynis) | D | A | `harden_strict_ops` default on; lab off |
+| PSAD (detect / alert) | D | A | LOG on `ufw-before-*` chains |
 | PSAD AUTO_IDS (auto-block) | D | F | Opt-in |
-| Dedicated iptables log + rotate | D | A | Rate-limited LOG |
-| IPv6 UFW log hooks | D | A | |
+| Dedicated iptables log + rotate | D | A | `[IPTABLES]` + `[UFW BLOCK]` |
+| IPv6 UFW log hooks | D | A | `ufw6-before-*` |
 | Docker vs UFW pitfalls | D | — | Doc only |
 | CrowdSec alternative | D | — | Doc; one IPS at a time |
 | msmtp outbound alerts | D | A | `0600` config + log file |
@@ -41,7 +42,7 @@ Legend: **A** = automated (on by default) · **F** = automated behind a flag (of
 | logwatch digests | D | A | |
 | Lynis via `03-audit.yml` | D | A | Debian packages by default |
 | Third-party Lynis APT repo | D | F | Supply-chain opt-in |
-| Lab / prod profiles | D | A | `ansible/profiles/*.yml` |
+| Lab / prod profiles | D | A | Required in quick start |
 | hidepid / umask / lock root / GRUB | D | — | Advanced optional |
 | Firejail / deborphan / OSSEC | D | — | Advanced optional |
 | Exim4 / duress / rng-tools | — | — | Omitted on purpose |
@@ -53,9 +54,10 @@ Legend: **A** = automated (on by default) · **F** = automated behind a flag (of
 | `harden_passwordless_sudo` | `false` | `true` |
 | `harden_auto_reboot` | `false` | `true` |
 | `harden_psad_auto_ids` | `false` | keep `false` |
+| `harden_fail2ban_require_ignoreip` | `true` | `false` |
+| `harden_strict_ops` | `true` | `false` |
 | `harden_enable_clamav` / `aide` / `chkrootkit` | `false` | `true` |
-| `harden_ssh_keys_exclusive` | `false` | often `false` until cutover |
-| `harden_fail2ban_require_ignoreip` | `false` | `true` on prod when CIDRs known |
+| `harden_ssh_keys_exclusive` | `false` (prod profile `true`) | often `false` until cutover |
 
 ## Residual risks
 

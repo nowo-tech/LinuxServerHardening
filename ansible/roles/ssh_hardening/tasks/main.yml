@@ -51,7 +51,7 @@
       Compression no
       TCPKeepAlive no
       DebianBanner no
-      UseDNS {{ harden_ssh_use_dns | default('yes') }}
+      UseDNS {{ harden_ssh_use_dns | default('no') }}
       LogLevel VERBOSE
 
       # Host keys (prefer modern curves first)

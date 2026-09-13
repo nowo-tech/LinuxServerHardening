@@ -13,10 +13,10 @@ jobs:
       run:
         working-directory: ansible
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4.2.2
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v5.3.0
         with:
           python-version: "3.12"
 
@@ -33,9 +33,11 @@ jobs:
           cp inventories/lab/hosts.yml.example inventories/lab/hosts.yml
           cp group_vars/all/vars.yml.example group_vars/all/vars.yml
           cp group_vars/all/vault.yml.example group_vars/all/vault.yml
+          # Syntax-check does not run asserts; still avoid empty ignoreip in copied vars
+          printf '\nharden_fail2ban_ignoreip: "127.0.0.1"\n' >> group_vars/all/vars.yml
 
       - name: Yamllint playbooks and roles
-        run: yamllint -d "{extends: relaxed, rules: {line-length: {max: 160}}}" playbooks roles group_vars inventories
+        run: yamllint -d "{extends: relaxed, rules: {line-length: {max: 160}}}" playbooks roles group_vars inventories profiles
 
       - name: Syntax-check playbooks
         run: |
@@ -45,3 +47,28 @@ jobs:
 
       - name: Ansible-lint
         run: ansible-lint -c .ansible-lint --nocolor playbooks roles
+
+  molecule:
+    name: Molecule smoke (Docker)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ansible
+    steps:
+      - uses: actions/checkout@v4.2.2
+
+      - name: Set up Python
+        uses: actions/setup-python@v5.3.0
+        with:
+          python-version: "3.12"
+
+      - name: Install Molecule
+        run: |
+          python -m pip install --upgrade pip
+          pip install "ansible-core>=2.14,<2.19" "molecule>=24.0" "molecule-plugins[docker]"
+
+      - name: Install collections
+        run: ansible-galaxy collection install -r requirements.yml -p ./collections
+
+      - name: Molecule test
+        run: molecule test
