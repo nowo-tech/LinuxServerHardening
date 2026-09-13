@@ -1,0 +1,9 @@
+---
+# No-op prepare; image already has Python.
+- name: Prepare
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Placeholder
+      ansible.builtin.debug:
+        msg: prepare ok

@@ -33,17 +33,35 @@ ansible-vault encrypt group_vars/all/vault.yml
 | `02-harden.yml` | `hosts.yml` (admin + port) | Baseline hardening |
 | `03-audit.yml` | `hosts.yml` | Lynis report (forces audit run) |
 
-## Safer defaults
+## Profiles (lab vs production)
 
-Passwordless sudo, automatic reboot, PSAD auto-block, ClamAV, AIDE, and chkrootkit are **off** unless you opt in. See `group_vars/all/vars.yml.example`.
+```bash
+# Disposable lab convenience knobs
+ansible-playbook -i inventories/lab/hosts.yml playbooks/02-harden.yml \
+  --ask-vault-pass --ask-become-pass -e @profiles/lab.yml
+
+# Explicit production overlay (set ignoreip inside profiles/prod.yml first)
+ansible-playbook -i inventories/lab/hosts.yml playbooks/02-harden.yml \
+  --ask-vault-pass --ask-become-pass -e @profiles/prod.yml
+```
+
+See `profiles/lab.yml` and `profiles/prod.yml`.
 
 ## Tags
 
 `packages`, `ntp`, `sysctl`, `ssh`, `mfa`, `passwords`, `updates`, `firewall`, `ids`, `mail`, `malware`, `integrity`, `chkrootkit`, `aide`, `auditd`, `logwatch`, `lynis`.
 
-## Check mode
+## Check mode / Molecule
 
 `--check` is best-effort. Tasks that shell out (moduli trim, aideinit, lynis, psad signature update, test mail) are not fully check-safe.
+
+Optional smoke test (Docker required):
+
+```bash
+cd ansible
+pip install 'molecule' 'molecule-plugins[docker]'
+molecule test
+```
 
 ## Directory map
 

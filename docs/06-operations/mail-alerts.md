@@ -32,8 +32,9 @@ account default : alerts
 ```
 
 ```bash
-chmod 640 /etc/msmtprc
-chown root:msmtp /etc/msmtprc
+chmod 600 /etc/msmtprc
+chown root:root /etc/msmtprc
+touch /var/log/msmtp.log && chmod 600 /var/log/msmtp.log
 
 echo 'root: security@example.com' >> /etc/aliases
 newaliases || true

@@ -26,7 +26,7 @@
     user: "{{ harden_admin_user }}"
     key: "{{ lookup('file', harden_ssh_public_key_path | expanduser) }}"
     state: present
-    exclusive: false
+    exclusive: "{{ harden_ssh_keys_exclusive | default(false) | bool }}"
 
 - name: Allow elevated group to sudo
   ansible.builtin.copy:

@@ -1,0 +1,16 @@
+---
+# Lab overlay — merge on top of group_vars/all/vars.yml
+# Usage:
+#   ansible-playbook -i inventories/lab/hosts.bootstrap.yml playbooks/01-bootstrap.yml \
+#     --ask-vault-pass -e @profiles/lab.yml
+#   ansible-playbook -i inventories/lab/hosts.yml playbooks/02-harden.yml \
+#     --ask-vault-pass --ask-become-pass -e @profiles/lab.yml
+
+harden_passwordless_sudo: true
+harden_auto_reboot: true
+harden_enable_clamav: true
+harden_enable_aide: true
+harden_enable_chkrootkit: true
+harden_enable_logwatch: true
+# Still keep AUTO_IDS off even in lab unless you enjoy lockouts
+harden_psad_auto_ids: false

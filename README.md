@@ -84,7 +84,9 @@ cp inventories/lab/hosts.yml.example inventories/lab/hosts.yml
 cp group_vars/all/vars.yml.example group_vars/all/vars.yml
 cp group_vars/all/vault.yml.example group_vars/all/vault.yml
 # Prefer passworded sudo in production (default). For disposable labs only:
-# harden_passwordless_sudo: true
+#   -e @profiles/lab.yml
+# For production overlays (set ignoreip inside the file first):
+#   -e @profiles/prod.yml
 ansible-vault encrypt group_vars/all/vault.yml
 # Before harden: set harden_fail2ban_ignoreip to your admin/VPN CIDRs
 

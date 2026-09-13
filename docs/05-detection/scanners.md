@@ -15,12 +15,16 @@ systemctl enable --now clamav-freshclam
 freshclam || true
 ```
 
-Nightly scan example (exclude pseudo-filesystems):
+Nightly scan example — **scope paths** (full `/` is brutal on small VPS disks):
 
 ```bash
-# /etc/cron.d/clamav-nightly
-30 3 * * * root /usr/bin/clamscan -r -i --exclude-dir="^/sys|^/proc|^/dev|^/run" / > /var/log/clamav/nightly.log 2>&1
+# /etc/cron.d/nowo-clamav-nightly
+30 3 * * * root /usr/bin/clamscan -r -i \
+  --exclude-dir="^/sys|^/proc|^/dev|^/run" \
+  /home /var/www /tmp /opt >> /var/log/clamav/nightly.log 2>&1
 ```
+
+Ansible uses `harden_clamav_scan_paths` the same way (`harden_enable_clamav: true`).
 
 ### rkhunter
 

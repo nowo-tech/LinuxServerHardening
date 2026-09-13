@@ -30,6 +30,8 @@ Read in order for the full learning path.
    - [Log digests](06-operations/log-digests.md)
    - [Continuous review](06-operations/continuous-review.md)
 8. Advanced
+   - [AppArmor](07-advanced/apparmor.md)
+   - [SSH FIDO2](07-advanced/ssh-fido2.md)
    - [Optional controls](07-advanced/optional-controls.md)
 
 Coverage checklist: [CONTROL-COVERAGE.md](CONTROL-COVERAGE.md)

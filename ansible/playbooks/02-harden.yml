@@ -24,6 +24,22 @@
           ansible_user={{ harden_admin_user }} and ansible_port={{ harden_ssh_port }}.
       when: ansible_user | default('') == 'root'
 
+    - name: Warn when Fail2Ban has no admin ignoreip allowlist
+      ansible.builtin.debug:
+        msg: >-
+          harden_fail2ban_ignoreip is empty. A mistyped key or scan from your
+          own IP can ban you. Set admin/VPN CIDRs before production runs
+          (see profiles/prod.yml).
+      when: (harden_fail2ban_ignoreip | default('') | trim) == ''
+
+    - name: Require Fail2Ban ignoreip when enforced
+      ansible.builtin.assert:
+        that:
+          - (harden_fail2ban_ignoreip | default('') | trim) | length > 0
+        fail_msg: >-
+          harden_fail2ban_require_ignoreip=true but harden_fail2ban_ignoreip is empty.
+      when: harden_fail2ban_require_ignoreip | default(false) | bool
+
   roles:
     - role: bootstrap
       tags: [packages]

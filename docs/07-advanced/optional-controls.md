@@ -128,4 +128,4 @@ Compile-or-agent HIDS is valuable at fleet scale. For a single VPS, prefer audit
 
 ## Next
 
-[../CONTROL-COVERAGE.md](../CONTROL-COVERAGE.md) — see what is automated vs documented only.
+[../CONTROL-COVERAGE.md](../CONTROL-COVERAGE.md)

@@ -1,0 +1,20 @@
+---
+# Production overlay — explicit safer knobs (matches all/vars.yml.example intent)
+# Usage:
+#   ansible-playbook -i inventories/lab/hosts.yml playbooks/02-harden.yml \
+#     --ask-vault-pass --ask-become-pass -e @profiles/prod.yml
+
+harden_passwordless_sudo: false
+harden_auto_reboot: false
+harden_psad_auto_ids: false
+harden_enable_clamav: false
+harden_enable_aide: false
+harden_enable_chkrootkit: false
+harden_enable_mfa_role: false
+harden_ssh_mfa_enable: false
+harden_allow_third_party_lynis_repo: false
+harden_lynis_force_run: false
+# REQUIRED for real hosts: your admin/VPN CIDRs
+harden_fail2ban_ignoreip: "203.0.113.10"
+harden_fail2ban_require_ignoreip: true
+harden_ssh_keys_exclusive: true

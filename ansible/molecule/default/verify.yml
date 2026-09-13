@@ -1,0 +1,15 @@
+---
+- name: Verify admin user exists
+  hosts: all
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Check molecule user
+      ansible.builtin.command: id molecule
+      register: molecule_id
+      changed_when: false
+
+    - name: Assert sshaccess membership
+      ansible.builtin.assert:
+        that:
+          - "'sshaccess' in molecule_id.stdout"

@@ -8,6 +8,16 @@
     group: root
   no_log: true
 
+- name: Ensure msmtp logfile exists with tight permissions
+  ansible.builtin.file:
+    path: /var/log/msmtp.log
+    state: touch
+    mode: "0600"
+    owner: root
+    group: root
+    modification_time: preserve
+    access_time: preserve
+
 - name: Map root mail to alert inbox
   ansible.builtin.lineinfile:
     path: /etc/aliases

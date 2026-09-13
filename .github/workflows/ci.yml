@@ -44,4 +44,4 @@ jobs:
           ansible-playbook --syntax-check playbooks/03-audit.yml
 
       - name: Ansible-lint
-        run: ansible-lint --nocolor playbooks
+        run: ansible-lint -c .ansible-lint --nocolor playbooks roles

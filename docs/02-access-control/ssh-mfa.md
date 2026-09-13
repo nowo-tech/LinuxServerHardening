@@ -41,13 +41,18 @@ After every admin has enrolled, remove `nullok` so unenrolled accounts cannot sk
 ### Ansible
 
 ```bash
-# Install PAM wiring only
+# 1) Wire PAM only (still allows login without TOTP while nullok is true)
+#    vars: harden_enable_mfa_role: true, harden_ssh_mfa_nullok: true, harden_ssh_mfa_enable: false
 ansible-playbook ... playbooks/02-harden.yml --tags mfa
 
-# After enrolment, set in vars.yml:
-# harden_ssh_mfa_enable: true
-# then re-run --tags ssh,mfa
+# 2) Each admin runs: google-authenticator
+
+# 3) Enforce key + TOTP (PAM without nullok + AuthenticationMethods)
+#    vars: harden_ssh_mfa_nullok: false, harden_ssh_mfa_enable: true
+ansible-playbook ... playbooks/02-harden.yml --tags mfa,ssh
 ```
+
+Until step 3, MFA is **installed but not enforced** — do not treat that as 2FA complete.
 
 ## Why
 

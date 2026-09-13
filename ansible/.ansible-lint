@@ -1,0 +1,13 @@
+---
+# Soften ansible-lint for a didactic kit; tighten over time.
+skip_list:
+  - yaml[line-length]
+  - name[casing]
+  - risky-shell-pipe
+  - command-instead-of-shell
+  - no-changed-when
+  - ignore-errors
+  - experimental
+exclude_paths:
+  - collections/
+  - profiles/

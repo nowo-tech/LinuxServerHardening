@@ -21,12 +21,13 @@ Minimal policy file:
 Unattended-Upgrade::Origins-Pattern {
     "origin=Debian,codename=${distro_codename}-security";
 };
-Unattended-Upgrade::Automatic-Reboot "true";
+# Kit default is false — enable only on disposable labs
+Unattended-Upgrade::Automatic-Reboot "false";
 Unattended-Upgrade::Automatic-Reboot-Time "04:30";
 Unattended-Upgrade::Mail "security@example.com";
 ```
 
-For production clusters, turn automatic reboot **off** (`harden_auto_reboot: false`) and schedule restarts yourself.
+For disposable labs you may set reboot to `"true"` or use Ansible `profiles/lab.yml` (`harden_auto_reboot: true`). On production clusters, keep it **off** and schedule restarts yourself.
 
 ### apticron and apt-listchanges
 

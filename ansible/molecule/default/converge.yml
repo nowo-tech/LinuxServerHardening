@@ -1,0 +1,22 @@
+---
+- name: Converge — bootstrap identity only (safe smoke path)
+  hosts: all
+  become: true
+  gather_facts: true
+  vars:
+    harden_admin_user: molecule
+    harden_groups:
+      ssh: sshaccess
+      sudo: elevated
+      su: switchroot
+    harden_passwordless_sudo: true
+    harden_ssh_public_key_path: "{{ playbook_dir }}/files/molecule.pub"
+    vault_admin_password: "MoleculeTestPassw0rd!"
+  pre_tasks:
+    - name: Install openssh-server for identity tasks
+      ansible.builtin.apt:
+        name: openssh-server
+        state: present
+        update_cache: true
+  roles:
+    - role: admin_user
