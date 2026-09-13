@@ -27,11 +27,29 @@ ansible-vault encrypt group_vars/all/vault.yml
 
 ## Plays
 
+```mermaid
+flowchart TB
+  subgraph bootstrap["Bootstrap (root inventory)"]
+    B1[admin_user + groups + key + sudo]
+  end
+  subgraph harden["Harden (admin inventory + port)"]
+    H1[packages · ntp · sysctl · ssh]
+    H2[passwords · updates · firewall/IDS]
+    H3[mail · scanners · auditd · logwatch]
+  end
+  subgraph audit["Audit"]
+    A1[Lynis force run + optional mail]
+  end
+  bootstrap --> harden --> audit
+  harden -.-> Lab["-e @profiles/lab.yml"]
+  harden -.-> Prod["-e @profiles/prod.yml"]
+```
+
 | Playbook | Inventory | Purpose |
 |----------|-----------|---------|
 | `01-bootstrap.yml` | `hosts.bootstrap.yml` (root) | Admin user, groups, key, sudo |
 | `02-harden.yml` | `hosts.yml` (admin + port) | Baseline hardening |
-| `03-audit.yml` | `hosts.yml` | Lynis report (forces audit run) |
+| `03-audit.yml` | `hosts.yml` | Lynis report (forces audit run; vault optional) |
 
 ## Safer defaults
 
@@ -47,6 +65,14 @@ ansible-playbook -i inventories/lab/hosts.yml playbooks/02-harden.yml \
   --ask-vault-pass --ask-become-pass -e @profiles/prod.yml
 ```
 
+| Knob | Default (`vars.yml`) | Lab profile | Prod profile |
+|------|----------------------|-------------|--------------|
+| `harden_fail2ban_require_ignoreip` | `true` | `false` | `true` |
+| `harden_strict_ops` | `true` | `false` | `true` |
+| `harden_passwordless_sudo` | `false` | `true` | `false` |
+| `harden_auto_reboot` | `false` | `true` | `false` |
+| `harden_ssh_keys_exclusive` | `false` | — | `true` |
+
 ## Tags
 
 `packages`, `ntp`, `sysctl`, `ssh`, `mfa`, `passwords`, `updates`, `firewall`, `ids`, `mail`, `malware`, `integrity`, `chkrootkit`, `aide`, `auditd`, `logwatch`, `lynis`.
@@ -55,7 +81,7 @@ ansible-playbook -i inventories/lab/hosts.yml playbooks/02-harden.yml \
 
 `--check` is best-effort. Tasks that shell out (moduli trim, aideinit, lynis, psad signature update, test mail) are not fully check-safe.
 
-Optional smoke test (Docker required):
+Optional smoke test (Docker required; also runs in CI):
 
 ```bash
 cd ansible
@@ -72,4 +98,6 @@ roles/
   firewall_stack/ outbound_mail/
   malware_scan/ integrity_checks/ rootkit_extra/ file_integrity/
   audit_framework/ log_digest/ security_audit/
+profiles/
+  lab.yml   prod.yml
 ```

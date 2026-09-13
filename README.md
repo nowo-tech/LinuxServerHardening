@@ -25,46 +25,55 @@ It is **not** a compliance product, a CIS auditor replacement, or a substitute f
 
 ## Mental model: six defense layers
 
-```text
-┌─────────────────────────────────────────────────────────┐
-│ 6. Operations      monitoring, mail alerts, re-audit    │
-├─────────────────────────────────────────────────────────┤
-│ 5. Detection       auditd, scanners, integrity checks   │
-├─────────────────────────────────────────────────────────┤
-│ 4. Host baseline   packages, passwords, auto-updates    │
-├─────────────────────────────────────────────────────────┤
-│ 3. Network edge    firewall, rate limits, IDS hooks     │
-├─────────────────────────────────────────────────────────┤
-│ 2. Access control  SSH keys, groups, sudo/su policy     │
-├─────────────────────────────────────────────────────────┤
-│ 1. Foundations     threat model, OS choice, lab safety  │
-└─────────────────────────────────────────────────────────┘
+Work **bottom-up**. Changing SSH before you have a firewall recovery path is a common lock-out pattern.
+
+```mermaid
+flowchart TB
+  L1["1. Foundations<br/>threat model · OS · lab safety"]
+  L2["2. Access control<br/>users · SSH keys · sudo/su"]
+  L3["3. Network edge<br/>UFW · Fail2Ban · PSAD"]
+  L4["4. Host baseline<br/>NTP · updates · passwords · sysctl"]
+  L5["5. Detection<br/>auditd · AIDE · scanners"]
+  L6["6. Operations<br/>mail · logwatch · re-audit"]
+  L1 --> L2 --> L3 --> L4 --> L5 --> L6
 ```
 
-Work bottom-up. Changing SSH before you have a firewall recovery path is a common lock-out pattern; the guide orders steps to reduce that risk.
+## Automation flow
+
+Always pick a profile: **lab** (disposable) or **prod** (real `ignoreip`, strict ops).
+
+```mermaid
+flowchart LR
+  A["01-bootstrap.yml<br/>inventory: root"] --> B["Verify key login"]
+  B --> C["02-harden.yml<br/>inventory: admin + new port"]
+  C --> D["03-audit.yml<br/>Lynis report"]
+  C -.-> P1["-e @profiles/lab.yml"]
+  C -.-> P2["-e @profiles/prod.yml"]
+```
 
 ## Repository layout
 
 ```text
 docs/                 Didactic guide (read in order)
-ansible/              Automation that mirrors the layers
-  playbooks/          Entry points (bootstrap → harden → audit)
-  roles/              One concern per role
-  inventories/lab/    Example inventory (replace with yours)
-  group_vars/         Non-secret defaults + vault placeholders
+ansible/
+  playbooks/          bootstrap → harden → audit
+  roles/              one concern per role
+  inventories/lab/    bootstrap vs runtime host files
+  group_vars/         non-secret defaults + vault placeholders
+  profiles/           lab.yml / prod.yml overlays
 ```
 
 | Path | Purpose |
 |------|---------|
 | [docs/00-start-here.md](docs/00-start-here.md) | How to use the kit safely |
 | [docs/01-foundations/](docs/01-foundations/) | Threat model, OS choice, lab safety |
-| [docs/02-access-control/](docs/02-access-control/) | Users, SSH (incl. crypto + MFA), privilege boundaries |
+| [docs/02-access-control/](docs/02-access-control/) | Users, SSH (crypto + MFA), privileges |
 | [docs/03-network/](docs/03-network/) | Firewall, IDS, Docker caveats, CrowdSec |
 | [docs/04-host-baseline/](docs/04-host-baseline/) | NTP, updates, passwords, kernel knobs |
 | [docs/05-detection/](docs/05-detection/) | auditd, AIDE, malware/rootkit checks |
 | [docs/06-operations/](docs/06-operations/) | Mail, logwatch, day-2 review |
-| [docs/07-advanced/](docs/07-advanced/) | GRUB, umask, hidepid, Firejail, and more |
-| [docs/CONTROL-COVERAGE.md](docs/CONTROL-COVERAGE.md) | What is documented vs automated |
+| [docs/07-advanced/](docs/07-advanced/) | AppArmor, FIDO2, GRUB, umask, more |
+| [docs/CONTROL-COVERAGE.md](docs/CONTROL-COVERAGE.md) | Documented vs automated map |
 | [ansible/README.md](ansible/README.md) | How to run the playbooks |
 
 ## Quick start (automation)
@@ -113,8 +122,6 @@ ansible-playbook -i inventories/lab/hosts.yml playbooks/02-harden.yml \
 
 ## Quick start (manual learning path)
 
-If you prefer to learn by hand before automating:
-
 1. Read [docs/00-start-here.md](docs/00-start-here.md)
 2. Complete [docs/01-foundations/](docs/01-foundations/)
 3. Follow layers 2 → 6 in order
@@ -124,12 +131,13 @@ If you prefer to learn by hand before automating:
 
 | Choice | Reason |
 |--------|--------|
-| Debian-focused examples | Validated on Debian 12/13 (asserted in plays) |
+| Debian 12/13 only (asserted) | Predictable packaging and systemd behaviour |
 | Ansible Vault for secrets | Passwords and SMTP tokens must not live in git history |
-| Safer production defaults | No NOPASSWD, no auto-reboot, no PSAD auto-block unless opted in |
-| Default-deny firewall (in and out) | Limits both inbound scanners and unexpected C2 egress |
+| Lab / prod profiles | Same roles; different lockout and strictness knobs |
+| Fail2Ban ignoreip required by default | Prevents banning your own admin IP on public hosts |
+| No NOPASSWD / auto-reboot / PSAD AUTO_IDS by default | Safer production posture |
+| Default-deny firewall (in and out) | Limits scanners and unexpected C2 egress |
 | Key-only SSH, no root login | Removes the highest-value, most-probed credentials |
-| Security-only unattended upgrades | Patches critical CVEs without surprise feature bumps |
 | Separate bootstrap vs runtime inventories | Avoids `ansible_user: root` sticking on harden plays |
 
 ## Safety contract

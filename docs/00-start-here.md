@@ -19,30 +19,41 @@ This kit teaches **why** Linux server controls exist, then helps you apply them 
 | Verify | How do I prove it worked? |
 | Rollback | How do I undo without rebuilding? |
 
-Copy that pattern when you add controls of your own.
+Where automation exists, chapters mention the matching Ansible **tags** / roles.
 
 ## Suggested order
 
-```text
-Foundations → Access → Network → Host baseline → Detection → Operations
+```mermaid
+flowchart LR
+  F[Foundations] --> A[Access]
+  A --> N[Network]
+  N --> H[Host baseline]
+  H --> D[Detection]
+  D --> O[Operations]
 ```
 
-Skipping ahead is fine for experienced operators, but **never** change the SSH port until:
+Skipping ahead is fine for experienced operators, but **never** change the SSH port until the anti-lockout path below is true.
 
-- your admin user exists,
-- your public key works,
-- the firewall already allows the **new** port,
-- a console session is open.
+```mermaid
+flowchart TD
+  A[Admin user + SSH key works] --> B[Console / VNC open]
+  B --> C[UFW allows NEW SSH port]
+  C --> D[Change sshd + reload]
+  D --> E[Second SSH session succeeds]
+  E --> F[Close first session]
+```
 
 ## Lab vs production
 
-| Topic | Lab | Production |
-|-------|-----|------------|
-| Secrets in Vault | Optional (still good practice) | Mandatory |
+| Topic | Lab (`profiles/lab.yml`) | Production (`profiles/prod.yml`) |
+|-------|--------------------------|----------------------------------|
+| Secrets in Vault | Recommended | Mandatory |
+| Fail2Ban `ignoreip` | Optional | **Required** (real CIDRs, not TEST-NET) |
+| `harden_strict_ops` | Off (soft-fail OK) | On (mail/PSAD/Lynis must work) |
+| Passwordless sudo | Allowed | Off |
+| Auto-reboot after security updates | Allowed | Off / windowed |
+| ClamAV / AIDE / chkrootkit | Often on | Opt-in by load |
 | Default-deny egress | Recommended | Required if you can list needed ports |
-| Mail alerts | Use a throwaway inbox | Use a monitored inbox / ticket route |
-| Scanners (ClamAV, rkhunter) | Nightly is fine | Schedule by load; tune false positives |
-| Reboots after security updates | Automatic OK | Windowed / approved |
 
 ## What “good enough” looks like after day one
 
@@ -50,10 +61,11 @@ Skipping ahead is fine for experienced operators, but **never** change the SSH p
 - Password SSH is off; keys only
 - Only members of an SSH allow-group can connect
 - Firewall denies unexpected inbound traffic
+- Fail2Ban has an admin/VPN allowlist (prod)
 - Security updates install without waiting for you
 - You receive at least one test alert email
 
-Then iterate: detection depth, kernel hardening, application jails, and continuous audit.
+Then iterate: detection depth, MFA enforce, kernel hardening, and continuous audit.
 
 ## Next
 

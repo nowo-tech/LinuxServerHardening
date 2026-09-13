@@ -8,11 +8,26 @@ Default OpenSSH on port 22 with password authentication is the most scanned surf
 
 ### Order of operations (critical)
 
+```mermaid
+sequenceDiagram
+  participant You
+  participant SSH as sshd
+  participant FW as UFW
+  You->>SSH: 1. Key login works on CURRENT port
+  You->>FW: 2. Allow NEW SSH port (limit)
+  You->>SSH: 3. Write drop-in + sshd -t
+  You->>SSH: 4. Reload sshd
+  You->>SSH: 5. Open SECOND session on new port
+  Note over You: Only then close the first session
+```
+
 1. Confirm key login as `admin` works on the **current** port.
 2. Allow the **new** port in the firewall.
 3. Change `sshd` settings.
 4. Reload `sshd`.
 5. Open a **second** SSH session before closing the first.
+
+Ansible: role `ssh_hardening` (tag `ssh`) pre-allows the port in UFW and flushes handlers before reloading sshd.
 
 ### Recommended policy (modern OpenSSH)
 

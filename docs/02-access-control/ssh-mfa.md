@@ -8,6 +8,16 @@ A stolen laptop with an unlocked SSH private key (or an exported key without a p
 
 Complete **key-only SSH** first. Never enable MFA in the same change window as a port or firewall cutover.
 
+```mermaid
+stateDiagram-v2
+  [*] --> KeyOnly: SSH keys work
+  KeyOnly --> Wired: harden_enable_mfa_role=true<br/>nullok=true (not enforced)
+  Wired --> Enrolled: each admin runs google-authenticator
+  Enrolled --> Enforced: nullok=false<br/>harden_ssh_mfa_enable=true
+  note right of Wired: MFA installed but skippable
+  note right of Enforced: key + TOTP required
+```
+
 ```bash
 apt install -y libpam-google-authenticator
 

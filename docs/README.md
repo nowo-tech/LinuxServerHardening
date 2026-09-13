@@ -37,3 +37,5 @@ Read in order for the full learning path.
 Coverage checklist: [CONTROL-COVERAGE.md](CONTROL-COVERAGE.md)
 
 Automation: [../ansible/README.md](../ansible/README.md)
+
+Diagrams (Mermaid) appear where order matters: kit layers and playbook flow in the [root README](../README.md), anti-lockout SSH path here and in [ssh-service](02-access-control/ssh-service.md), MFA rollout in [ssh-mfa](02-access-control/ssh-mfa.md).

@@ -9,6 +9,7 @@ Thanks for improving **Linux Server Hardening**.
 3. **Prefer drop-in files** (`sshd_config.d`, `sysctl.d`, `cron.d`) over rewriting entire vendor configs.
 4. **Debian 12/13 first.** Note if a change is Ubuntu-specific.
 5. **No lock-out recipes.** SSH and firewall changes must document console recovery.
+6. **Diagrams sparingly.** Prefer Mermaid only for multi-step flows (bootstrap/harden, SSH cutover, MFA rollout). Single-control chapters stay Threat/Do/Why text.
 
 ## Pull requests
 

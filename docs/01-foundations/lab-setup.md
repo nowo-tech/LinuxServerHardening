@@ -50,6 +50,16 @@ ansible_user: admin
 ansible_port: 2222
 ```
 
+Always pass a profile overlay when hardening:
+
+```bash
+# Disposable lab
+-e @profiles/lab.yml
+
+# Real host (edit ignoreip in profiles/prod.yml first)
+-e @profiles/prod.yml
+```
+
 ## Why
 
 Separating **control node** and **target** matches how you will operate later: automation runs from CI or an admin workstation, not from the box being locked down.
@@ -60,7 +70,8 @@ Snapshots and consoles turn irreversible mistakes into five-minute recoveries, w
 
 ```bash
 ssh -i ~/.ssh/lab_ed25519 root@SERVER_IP 'uname -a && cat /etc/os-release | head -3'
-ansible -i inventories/lab/hosts.yml lab-debian -m ping --key-file ~/.ssh/lab_ed25519
+# After copying hosts.bootstrap.yml with your IP:
+ansible -i inventories/lab/hosts.bootstrap.yml lab-debian -m ping --key-file ~/.ssh/lab_ed25519
 ```
 
 You want `pong` and a Debian version string.

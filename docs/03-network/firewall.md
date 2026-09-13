@@ -30,6 +30,8 @@ ufw --force enable
 ufw status verbose
 ```
 
+Ansible: role `firewall_stack` (tags `firewall`, `ids`) — also wires Fail2Ban, PSAD, and dedicated iptables logs. Pair with `-e @profiles/lab.yml` or `prod.yml`.
+
 ### Rate limiting
 
 `ufw limit` uses iptables recent-match style limiting on new TCP connections. It will not stop a distributed slow scan, but it blunts simple floods against SSH.
