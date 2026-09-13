@@ -12,3 +12,8 @@
   ansible.builtin.service:
     name: psad
     state: restarted
+
+- name: Restart rsyslog
+  ansible.builtin.service:
+    name: rsyslog
+    state: restarted

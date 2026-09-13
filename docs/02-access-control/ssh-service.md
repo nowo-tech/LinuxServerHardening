@@ -37,15 +37,30 @@ ClientAliveCountMax 2
 X11Forwarding no
 AllowAgentForwarding no
 AllowTcpForwarding no
+AllowStreamLocalForwarding no
 PermitTunnel no
 GatewayPorts no
 PermitEmptyPasswords no
 PermitUserEnvironment no
+HostbasedAuthentication no
+IgnoreRhosts yes
+Compression no
+TCPKeepAlive no
 DebianBanner no
+UseDNS yes
+LogLevel VERBOSE
 
 # Prefer strong host keys already present on the host
 HostKey /etc/ssh/ssh_host_ed25519_key
 HostKey /etc/ssh/ssh_host_rsa_key
+HostKey /etc/ssh/ssh_host_ecdsa_key
+
+# Modern algorithm sets for current OpenSSH
+KexAlgorithms curve25519-sha256,curve25519-sha256@libssh.org,ecdh-sha2-nistp521,ecdh-sha2-nistp384,ecdh-sha2-nistp256,diffie-hellman-group-exchange-sha256
+Ciphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-ctr
+MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,hmac-sha2-512,hmac-sha2-256
+
+Subsystem sftp internal-sftp -f AUTHPRIV -l INFO
 ```
 
 Validate and reload:
@@ -76,6 +91,9 @@ If you need a second factor, prefer `libpam-google-authenticator` or hardware ke
 | No root login | Forces named admin accounts and cleaner audit trails |
 | Forwarding off | Stops the box being used as a pivot by default |
 | Strong moduli | Avoids weak DH groups in legacy key exchange |
+| Explicit Kex/Ciphers/MACs | Drops legacy algorithms scanners still try |
+| `LogLevel VERBOSE` | Records which key fingerprint authenticated |
+| Audited SFTP subsystem | Keeps file-transfer actions in AUTHPRIV logs |
 
 ## Verify
 
@@ -102,4 +120,4 @@ systemctl reload ssh
 
 ## Next
 
-[../03-network/firewall.md](../03-network/firewall.md)
+[ssh-mfa.md](ssh-mfa.md) — optional second factor after keys work.

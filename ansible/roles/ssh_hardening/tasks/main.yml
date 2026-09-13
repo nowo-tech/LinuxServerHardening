@@ -17,28 +17,55 @@
     owner: root
     group: root
     content: |
+      # Access policy
       Port {{ harden_ssh_port }}
       PermitRootLogin no
       PasswordAuthentication no
-      KbdInteractiveAuthentication no
+      KbdInteractiveAuthentication {{ 'yes' if harden_ssh_mfa_enable | default(false) else 'no' }}
       PubkeyAuthentication yes
       AllowGroups {{ harden_groups.ssh }}
+      {% if harden_ssh_mfa_enable | default(false) %}
+      # Require key then TOTP once MFA is enrolled (see docs)
+      AuthenticationMethods publickey,keyboard-interactive
+      {% endif %}
+
+      # Session limits
       LoginGraceTime 30
-      MaxAuthTries 3
-      MaxSessions 3
-      MaxStartups 10:30:60
+      MaxAuthTries {{ harden_ssh_max_auth_tries | default(3) }}
+      MaxSessions {{ harden_ssh_max_sessions | default(3) }}
+      MaxStartups {{ harden_ssh_max_startups | default('10:30:60') }}
       ClientAliveInterval 300
       ClientAliveCountMax 2
+
+      # Reduce pivot / abuse surface
       X11Forwarding no
       AllowAgentForwarding no
       AllowTcpForwarding no
+      AllowStreamLocalForwarding no
       PermitTunnel no
       GatewayPorts no
       PermitEmptyPasswords no
       PermitUserEnvironment no
+      HostbasedAuthentication no
+      IgnoreRhosts yes
+      Compression no
+      TCPKeepAlive no
       DebianBanner no
+      UseDNS {{ harden_ssh_use_dns | default('yes') }}
+      LogLevel VERBOSE
+
+      # Host keys (prefer modern curves first)
       HostKey /etc/ssh/ssh_host_ed25519_key
       HostKey /etc/ssh/ssh_host_rsa_key
+      HostKey /etc/ssh/ssh_host_ecdsa_key
+
+      # Modern algorithm sets (compatible with current OpenSSH clients)
+      KexAlgorithms curve25519-sha256,curve25519-sha256@libssh.org,ecdh-sha2-nistp521,ecdh-sha2-nistp384,ecdh-sha2-nistp256,diffie-hellman-group-exchange-sha256
+      Ciphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-ctr
+      MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,hmac-sha2-512,hmac-sha2-256
+
+      # Auditable SFTP subsystem
+      Subsystem sftp internal-sftp -f AUTHPRIV -l INFO
   notify: Reload ssh
 
 - name: Backup SSH moduli once

@@ -58,12 +58,14 @@ ansible/              Automation that mirrors the layers
 | Path | Purpose |
 |------|---------|
 | [docs/00-start-here.md](docs/00-start-here.md) | How to use the kit safely |
-| [docs/01-foundations/](docs/01-foundations/) | Threat model, lab setup, principles |
-| [docs/02-access-control/](docs/02-access-control/) | Users, SSH, privilege boundaries |
-| [docs/03-network/](docs/03-network/) | Firewall and intrusion signals |
-| [docs/04-host-baseline/](docs/04-host-baseline/) | Updates, passwords, kernel knobs |
-| [docs/05-detection/](docs/05-detection/) | Auditing and malware/rootkit checks |
-| [docs/06-operations/](docs/06-operations/) | Mail relay, Lynis-style reviews, day-2 |
+| [docs/01-foundations/](docs/01-foundations/) | Threat model, OS choice, lab safety |
+| [docs/02-access-control/](docs/02-access-control/) | Users, SSH (incl. crypto + MFA), privilege boundaries |
+| [docs/03-network/](docs/03-network/) | Firewall, IDS, Docker caveats, CrowdSec |
+| [docs/04-host-baseline/](docs/04-host-baseline/) | NTP, updates, passwords, kernel knobs |
+| [docs/05-detection/](docs/05-detection/) | auditd, AIDE, malware/rootkit checks |
+| [docs/06-operations/](docs/06-operations/) | Mail, logwatch, day-2 review |
+| [docs/07-advanced/](docs/07-advanced/) | GRUB, umask, hidepid, Firejail, and more |
+| [docs/CONTROL-COVERAGE.md](docs/CONTROL-COVERAGE.md) | What is documented vs automated |
 | [ansible/README.md](ansible/README.md) | How to run the playbooks |
 
 ## Quick start (automation)

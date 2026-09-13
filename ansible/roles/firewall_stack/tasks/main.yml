@@ -40,23 +40,73 @@
     logging: "on"
   notify: Reload ufw
 
+- name: Log traffic in UFW before.rules for IDS consumers
+  ansible.builtin.blockinfile:
+    path: /etc/ufw/before.rules
+    insertbefore: "^COMMIT"
+    marker: "# {mark} NOWO IPTABLES LOGGING"
+    block: |
+      -A INPUT -j LOG --log-tcp-options --log-prefix "[IPTABLES] "
+      -A FORWARD -j LOG --log-tcp-options --log-prefix "[IPTABLES] "
+  notify: Reload ufw
+
+- name: Log traffic in UFW before6.rules for IDS consumers
+  ansible.builtin.blockinfile:
+    path: /etc/ufw/before6.rules
+    insertbefore: "^COMMIT"
+    marker: "# {mark} NOWO IPTABLES LOGGING"
+    block: |
+      -A INPUT -j LOG --log-tcp-options --log-prefix "[IPTABLES] "
+      -A FORWARD -j LOG --log-tcp-options --log-prefix "[IPTABLES] "
+  notify: Reload ufw
+
+- name: Route iptables-tagged logs to a dedicated file
+  ansible.builtin.copy:
+    dest: /etc/rsyslog.d/10-nowo-iptables.conf
+    mode: "0644"
+    content: |
+      :msg, contains, "[IPTABLES] " /var/log/iptables.log
+      & stop
+  notify: Restart rsyslog
+
+- name: Rotate dedicated iptables log
+  ansible.builtin.copy:
+    dest: /etc/logrotate.d/nowo-iptables
+    mode: "0644"
+    content: |
+      /var/log/iptables.log {
+          daily
+          rotate 7
+          missingok
+          notifempty
+          compress
+          delaycompress
+          create 640 root adm
+          postrotate
+              /usr/lib/rsyslog/rsyslog-rotate >/dev/null 2>&1 || true
+          endscript
+      }
+
 - name: Install Fail2Ban jail for sshd
   ansible.builtin.copy:
     dest: /etc/fail2ban/jail.d/sshd-nowo.local
     mode: "0644"
     content: |
       [DEFAULT]
+      ignoreip = 127.0.0.1/8 ::1 {{ harden_fail2ban_ignoreip | default('') }}
       bantime  = {{ harden_fail2ban_bantime }}
       findtime = 10m
       maxretry = {{ harden_fail2ban_maxretry }}
       destemail = {{ harden_mail_to }}
       sender = {{ harden_mail_from }}
+      mta = mail
       action = %(action_mwl)s
 
       [sshd]
       enabled = true
       port = {{ harden_ssh_port }}
       backend = systemd
+      banaction = ufw
   notify: Restart fail2ban
 
 - name: Ensure Fail2Ban is running
@@ -79,20 +129,15 @@
     - { regexp: '^ENABLE_AUTO_IDS_EMAILS', line: "ENABLE_AUTO_IDS_EMAILS Y;" }
     - { regexp: '^AUTO_IDS_DANGER_LEVEL', line: "AUTO_IDS_DANGER_LEVEL 3;" }
     - { regexp: '^EXPECT_TCP_OPTIONS', line: "EXPECT_TCP_OPTIONS Y;" }
+    - { regexp: '^IPT_SYSLOG_FILE', line: "IPT_SYSLOG_FILE /var/log/iptables.log;" }
   notify: Restart psad
 
-- name: Ensure UFW before.rules logs traffic for PSAD
+- name: Refresh PSAD signatures
   when: harden_enable_psad | bool
-  ansible.builtin.blockinfile:
-    path: /etc/ufw/before.rules
-    insertbefore: "^COMMIT"
-    marker: "# {mark} NOWO PSAD LOGGING"
-    block: |
-      -A INPUT -j LOG --log-tcp-options --log-prefix "[IPTABLES] "
-      -A FORWARD -j LOG --log-tcp-options --log-prefix "[IPTABLES] "
-  notify:
-    - Reload ufw
-    - Restart psad
+  ansible.builtin.command: psad --sig-update
+  register: psad_sig
+  changed_when: false
+  failed_when: false
 
 - name: Ensure PSAD is running
   when: harden_enable_psad | bool

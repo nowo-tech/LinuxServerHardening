@@ -1,0 +1,27 @@
+---
+- name: Install AIDE
+  ansible.builtin.apt:
+    name:
+      - aide
+      - aide-common
+    state: present
+
+- name: Enable daily AIDE cron
+  ansible.builtin.lineinfile:
+    path: /etc/default/aide
+    regexp: '^CRON_DAILY_RUN='
+    line: 'CRON_DAILY_RUN=yes'
+    create: true
+
+- name: Initialize AIDE database when missing
+  ansible.builtin.command: aideinit
+  args:
+    creates: /var/lib/aide/aide.db
+  register: aide_init
+  async: 3600
+  poll: 15
+
+- name: Promote new AIDE database if freshly initialized
+  when: aide_init is changed
+  ansible.builtin.command: aideinit -y -f
+  failed_when: false

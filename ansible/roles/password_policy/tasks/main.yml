@@ -1,5 +1,5 @@
 ---
-- name: Install pam_pwquality settings
+- name: Install pam_pwquality settings file
   ansible.builtin.copy:
     dest: /etc/security/pwquality.conf.d/90-nowo.conf
     mode: "0644"
@@ -12,11 +12,11 @@
       maxrepeat = 3
       difok = 4
       dictcheck = 1
+      gecoscheck = 1
 
-- name: Ensure common-password uses pam_pwquality
+- name: Ensure common-password uses pam_pwquality with strong defaults
   ansible.builtin.lineinfile:
     path: /etc/pam.d/common-password
     regexp: 'pam_pwquality\.so'
-    line: >-
-      password        requisite                       pam_pwquality.so retry=3
+    line: "password        requisite                       pam_pwquality.so retry=3 minlen=12 difok=4 ucredit=-1 lcredit=-1 dcredit=-1 ocredit=-1 maxrepeat=3 gecoscheck"
     state: present

@@ -26,7 +26,18 @@ Unattended-Upgrade::Automatic-Reboot-Time "04:30";
 Unattended-Upgrade::Mail "security@example.com";
 ```
 
-For production clusters, turn automatic reboot **off** and schedule restarts yourself.
+For production clusters, turn automatic reboot **off** (`harden_auto_reboot: false`) and schedule restarts yourself.
+
+### apticron and apt-listchanges
+
+```bash
+apt install -y apticron apt-listchanges
+# /etc/apticron/apticron.conf
+EMAIL="security@example.com"
+NOTIFY_NO_UPDATES="1"
+```
+
+apticron mails you about pending upgrades even when unattended-upgrades already handles security pockets — useful visibility for manual review packages.
 
 ### Password quality via PAM
 

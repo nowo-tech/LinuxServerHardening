@@ -1,0 +1,14 @@
+---
+- name: Install logwatch
+  ansible.builtin.apt:
+    name: logwatch
+    state: present
+
+- name: Schedule daily HTML log digest by mail
+  ansible.builtin.copy:
+    dest: /etc/cron.daily/00nowo-logwatch
+    mode: "0755"
+    content: |
+      #!/bin/sh
+      exec /usr/sbin/logwatch --output mail --format html \
+        --mailto {{ harden_mail_to }} --range yesterday --service all

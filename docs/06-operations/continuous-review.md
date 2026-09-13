@@ -16,6 +16,8 @@ Hardening decays. New packages reopen ports, temporary firewall rules become per
 [ ] unattended-upgrade logs — failures?
 [ ] Rotate or revoke admin SSH keys that left the team
 [ ] Confirm backup restore still works (out of band)
+[ ] If Docker is in use, re-check DOCKER-USER vs published ports
+[ ] AIDE/rkhunter/chkrootkit mail — unexplained changes?
 ```
 
 ### Lynis-style system audit

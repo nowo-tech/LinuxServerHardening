@@ -47,9 +47,13 @@ psad --Status
 
 Ensure UFW logs dropped traffic so PSAD has input. Tune danger levels carefully; aggressive auto-block can ban your own CI runners.
 
+### Dedicated firewall log file
+
+Route `[IPTABLES]` prefixed UFW logs into `/var/log/iptables.log` via rsyslog, point PSAD at that file, and rotate daily. This keeps scan noise out of the main syslog and improves PSAD signal quality. The Ansible `firewall_stack` role does this automatically.
+
 ### CrowdSec (optional alternative)
 
-On newer fleets, CrowdSec can replace or complement Fail2Ban with shared signals. Pick **one** primary bouncer stack first to avoid double-ban complexity.
+On newer fleets, CrowdSec can replace or complement Fail2Ban with shared signals. See [crowdsec.md](crowdsec.md). Pick **one** primary bouncer stack first to avoid double-ban complexity.
 
 ## Why
 

@@ -1,0 +1,33 @@
+---
+- name: Prefer systemd-timesyncd on Debian 13+
+  when: ansible_distribution_major_version | int >= 13
+  block:
+    - name: Enable NTP via timedatectl
+      ansible.builtin.command: timedatectl set-ntp true
+      changed_when: false
+
+    - name: Configure timesyncd pools
+      ansible.builtin.copy:
+        dest: /etc/systemd/timesyncd.conf.d/nowo.conf
+        mode: "0644"
+        content: |
+          [Time]
+          NTP={{ harden_ntp_servers | default(['pool.ntp.org']) | join(' ') }}
+          FallbackNTP=0.debian.pool.ntp.org 1.debian.pool.ntp.org 2.debian.pool.ntp.org 3.debian.pool.ntp.org
+      notify: Restart timesyncd
+
+- name: Use classic ntp package on Debian 12 and older
+  when: ansible_distribution_major_version | int < 13
+  block:
+    - name: Install ntp
+      ansible.builtin.apt:
+        name: ntp
+        state: present
+
+    - name: Point ntp at public pools
+      ansible.builtin.blockinfile:
+        path: /etc/ntp.conf
+        marker: "# {mark} NOWO NTP POOLS"
+        block: |
+          pool {{ harden_ntp_pool | default('pool.ntp.org') }} iburst
+      notify: Restart ntp

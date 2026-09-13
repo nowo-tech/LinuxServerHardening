@@ -1,0 +1,13 @@
+---
+- name: Install chkrootkit
+  ansible.builtin.apt:
+    name: chkrootkit
+    state: present
+
+- name: Enable daily chkrootkit cron when supported
+  ansible.builtin.lineinfile:
+    path: /etc/chkrootkit.conf
+    regexp: '^RUN_DAILY='
+    line: 'RUN_DAILY="true"'
+    create: true
+  failed_when: false

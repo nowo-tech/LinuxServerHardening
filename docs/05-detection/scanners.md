@@ -33,6 +33,16 @@ rkhunter --check --sk
 
 Enable daily cron via `/etc/default/rkhunter` (`CRON_DAILY_RUN="true"`).
 
+### chkrootkit (second opinion)
+
+```bash
+apt install -y chkrootkit
+chkrootkit
+# Enable daily run via /etc/chkrootkit.conf when the package ships cron hooks
+```
+
+Use chkrootkit **and** rkhunter as independent signatures; do not treat a clean run of one as proof.
+
 ### Reality check
 
 AV on Linux catches known Linux malware and phishing drops stored on the box; it will not replace patching or least privilege. Tune aggressively against false positives on deploy directories.

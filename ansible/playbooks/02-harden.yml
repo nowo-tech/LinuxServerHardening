@@ -11,10 +11,15 @@
   roles:
     - role: bootstrap
       tags: [packages]
+    - role: time_sync
+      tags: [ntp, time]
     - role: host_sysctl
       tags: [sysctl]
     - role: ssh_hardening
       tags: [ssh]
+    - role: ssh_mfa
+      tags: [mfa]
+      when: harden_enable_mfa_role | bool
     - role: password_policy
       tags: [passwords]
     - role: auto_updates
@@ -29,7 +34,16 @@
     - role: integrity_checks
       tags: [integrity]
       when: harden_enable_rkhunter | bool
+    - role: rootkit_extra
+      tags: [integrity, chkrootkit]
+      when: harden_enable_chkrootkit | bool
+    - role: file_integrity
+      tags: [aide, integrity]
+      when: harden_enable_aide | bool
     - role: audit_framework
       tags: [auditd]
+    - role: log_digest
+      tags: [logwatch]
+      when: harden_enable_logwatch | bool
     - role: security_audit
       tags: [lynis]

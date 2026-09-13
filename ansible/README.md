@@ -1,6 +1,6 @@
 # Ansible automation
 
-Playbooks mirror the documentation layers. Read [../docs/00-start-here.md](../docs/00-start-here.md) before the first run.
+Playbooks mirror the documentation layers. Read [../docs/00-start-here.md](../docs/00-start-here.md) before the first run. See [../docs/CONTROL-COVERAGE.md](../docs/CONTROL-COVERAGE.md) for what each flag enables.
 
 ## Requirements
 
@@ -9,7 +9,7 @@ Playbooks mirror the documentation layers. Read [../docs/00-start-here.md](../do
 - Network path from control node to target on SSH
 
 ```bash
-ansible-galaxy collection install ansible.posix community.general
+ansible-galaxy collection install -r requirements.yml
 ```
 
 ## Configure
@@ -34,14 +34,23 @@ ansible-vault encrypt group_vars/all/vault.yml
 
 ## Tags
 
-On `02-harden.yml` you can limit scope:
-
 ```bash
 ansible-playbook -i inventories/lab/hosts.yml playbooks/02-harden.yml \
-  --ask-vault-pass --tags firewall,ssh
+  --ask-vault-pass --tags firewall,ssh,ntp
 ```
 
-Available tags: `packages`, `ssh`, `passwords`, `updates`, `sysctl`, `firewall`, `ids`, `mail`, `malware`, `integrity`, `auditd`, `lynis`.
+Tags include: `packages`, `ntp`, `sysctl`, `ssh`, `mfa`, `passwords`, `updates`, `firewall`, `ids`, `mail`, `malware`, `integrity`, `chkrootkit`, `aide`, `auditd`, `logwatch`, `lynis`.
+
+## Feature flags (`vars.yml`)
+
+| Variable | Default | Effect |
+|----------|---------|--------|
+| `harden_enable_mfa_role` | `false` | Install TOTP PAM wiring |
+| `harden_ssh_mfa_enable` | `false` | Enforce `publickey,keyboard-interactive` |
+| `harden_enable_aide` | `true` | AIDE init + daily cron |
+| `harden_enable_logwatch` | `true` | Daily HTML mail digest |
+| `harden_enable_chkrootkit` | `true` | chkrootkit package + daily |
+| `harden_auto_reboot` | `true` | Unattended reboot after security updates |
 
 ## Safety
 
@@ -56,14 +65,19 @@ Available tags: `packages`, `ssh`, `passwords`, `updates`, `sysctl`, `firewall`,
 roles/
   bootstrap/          packages needed early
   admin_user/         groups + user + key + sudo/su
+  time_sync/          systemd-timesyncd or ntp
   host_sysctl/        network/kernel sysctl drop-in
-  ssh_hardening/      sshd drop-in + moduli
+  ssh_hardening/      sshd drop-in + moduli + crypto
+  ssh_mfa/            optional TOTP PAM
   password_policy/    pam_pwquality
-  auto_updates/       unattended-upgrades
-  firewall_stack/     ufw + fail2ban + psad
+  auto_updates/       unattended-upgrades + apticron
+  firewall_stack/     ufw + fail2ban + psad + iptables log
   outbound_mail/      msmtp
   malware_scan/       clamav
   integrity_checks/   rkhunter
+  rootkit_extra/      chkrootkit
+  file_integrity/     AIDE
   audit_framework/    auditd rules
+  log_digest/         logwatch
   security_audit/     lynis
 ```

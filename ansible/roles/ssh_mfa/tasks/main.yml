@@ -1,0 +1,21 @@
+---
+- name: Install google-authenticator PAM module
+  ansible.builtin.apt:
+    name: libpam-google-authenticator
+    state: present
+
+- name: Wire TOTP into sshd PAM stack (nullok until enrolled)
+  ansible.builtin.lineinfile:
+    path: /etc/pam.d/sshd
+    insertafter: '^@include common-auth'
+    line: 'auth required pam_google_authenticator.so nullok'
+    state: present
+  notify: Reload ssh
+
+- name: Remind operator to enrol TOTP interactively
+  ansible.builtin.debug:
+    msg: >-
+      MFA packages and PAM are ready. Each admin must run
+      `google-authenticator` once, store scratch codes offline,
+      then remove `nullok` from /etc/pam.d/sshd and set
+      harden_ssh_mfa_enable=true so AuthenticationMethods enforces key+TOTP.
