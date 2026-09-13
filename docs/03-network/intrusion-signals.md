@@ -1,0 +1,87 @@
+# Intrusion signals: Fail2Ban and PSAD
+
+## Threat
+
+Firewalls drop packets silently. You still want **signals**: repeated auth failures, port scans, and patterns that look like reconnaissance. Without alerts or automatic bans, you learn about abuse only after damage.
+
+## Do
+
+### Fail2Ban (application log bans)
+
+```bash
+apt install -y fail2ban
+
+# /etc/fail2ban/jail.local
+[DEFAULT]
+bantime  = 1h
+findtime = 10m
+maxretry = 5
+destemail = security@example.com
+sender = server@example.com
+action = %(action_mwl)s
+
+[sshd]
+enabled = true
+port = 2222
+backend = systemd
+```
+
+```bash
+systemctl enable --now fail2ban
+fail2ban-client status sshd
+```
+
+### PSAD (firewall log analysis)
+
+PSAD watches firewall logs for scan-like behavior. Wire UFW/iptables logging first, then:
+
+```bash
+apt install -y psad
+
+# Point EMAIL_ADDRESSES and HOSTNAME in /etc/psad/psad.conf
+# Enable watchd / auto-IDS only after mail works — or you get silent "protection"
+
+systemctl enable --now psad
+psad --Status
+```
+
+Ensure UFW logs dropped traffic so PSAD has input. Tune danger levels carefully; aggressive auto-block can ban your own CI runners.
+
+### CrowdSec (optional alternative)
+
+On newer fleets, CrowdSec can replace or complement Fail2Ban with shared signals. Pick **one** primary bouncer stack first to avoid double-ban complexity.
+
+## Why
+
+| Tool | Strength |
+|------|----------|
+| Fail2Ban | Excellent at “same IP keeps failing sshd” |
+| PSAD | Better at raw packet/scan patterns from firewall logs |
+| CrowdSec | Community signals + modern scrapers |
+
+They overlap. Start with Fail2Ban for SSH; add PSAD when logging is solid.
+
+## Verify
+
+From another host (not your only admin IP):
+
+```bash
+# Generate a few failed logins intentionally, then:
+fail2ban-client status sshd
+journalctl -u fail2ban -n 50 --no-pager
+```
+
+Confirm you receive mail only after the outbound mail chapter works.
+
+## Rollback
+
+```bash
+fail2ban-client set sshd unbanip A.B.C.D
+systemctl stop fail2ban
+# PSAD:
+systemctl stop psad
+```
+
+## Next
+
+[../04-host-baseline/updates-and-passwords.md](../04-host-baseline/updates-and-passwords.md)

@@ -1,0 +1,15 @@
+---
+- name: Run security audit report
+  hosts: hardened_servers
+  become: true
+  gather_facts: true
+  remote_user: "{{ harden_admin_user }}"
+  vars_files:
+    - ../group_vars/all/vars.yml
+    - ../group_vars/all/vault.yml
+
+  roles:
+    - role: security_audit
+      tags: [lynis]
+      vars:
+        harden_lynis_force_run: true

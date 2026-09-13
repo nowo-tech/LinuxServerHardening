@@ -1,0 +1,14 @@
+---
+- name: Reload ufw
+  ansible.builtin.command: ufw reload
+  changed_when: false
+
+- name: Restart fail2ban
+  ansible.builtin.service:
+    name: fail2ban
+    state: restarted
+
+- name: Restart psad
+  ansible.builtin.service:
+    name: psad
+    state: restarted

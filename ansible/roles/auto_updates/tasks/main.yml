@@ -1,0 +1,25 @@
+---
+- name: Enable periodic unattended upgrades
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/20auto-upgrades
+    mode: "0644"
+    content: |
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Unattended-Upgrade "1";
+      APT::Periodic::Download-Upgradeable-Packages "1";
+      APT::Periodic::AutocleanInterval "7";
+
+- name: Configure security-only unattended upgrades
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/52nowo-unattended-upgrades
+    mode: "0644"
+    content: |
+      Unattended-Upgrade::Origins-Pattern {
+          "origin=Debian,codename=${distro_codename}-security";
+          "origin=Debian,codename=${distro_codename},label=Debian-Security";
+      };
+      Unattended-Upgrade::Mail "{{ harden_mail_to }}";
+      Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";
+      Unattended-Upgrade::Remove-Unused-Dependencies "true";
+      Unattended-Upgrade::Automatic-Reboot "true";
+      Unattended-Upgrade::Automatic-Reboot-Time "04:30";

@@ -1,0 +1,9 @@
+all:
+  children:
+    hardened_servers:
+      hosts:
+        lab-debian:
+          ansible_host: 203.0.113.10
+          # bootstrap play uses root; harden play overrides to harden_admin_user
+          ansible_user: root
+          ansible_python_interpreter: /usr/bin/python3

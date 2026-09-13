@@ -1,0 +1,21 @@
+---
+- name: Bootstrap admin identity on a fresh Debian host
+  hosts: hardened_servers
+  become: true
+  gather_facts: true
+  vars_files:
+    - ../group_vars/all/vars.yml
+    - ../group_vars/all/vault.yml
+
+  pre_tasks:
+    - name: Require Debian family
+      ansible.builtin.assert:
+        that:
+          - ansible_os_family == "Debian"
+        fail_msg: "This kit targets Debian/Ubuntu-family hosts."
+
+  roles:
+    - role: bootstrap
+      tags: [bootstrap, packages]
+    - role: admin_user
+      tags: [bootstrap, identity]

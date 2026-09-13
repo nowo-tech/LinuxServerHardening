@@ -1,0 +1,35 @@
+---
+- name: Apply layered hardening baseline
+  hosts: hardened_servers
+  become: true
+  gather_facts: true
+  remote_user: "{{ harden_admin_user }}"
+  vars_files:
+    - ../group_vars/all/vars.yml
+    - ../group_vars/all/vault.yml
+
+  roles:
+    - role: bootstrap
+      tags: [packages]
+    - role: host_sysctl
+      tags: [sysctl]
+    - role: ssh_hardening
+      tags: [ssh]
+    - role: password_policy
+      tags: [passwords]
+    - role: auto_updates
+      tags: [updates]
+    - role: firewall_stack
+      tags: [firewall, ids]
+    - role: outbound_mail
+      tags: [mail]
+    - role: malware_scan
+      tags: [malware]
+      when: harden_enable_clamav | bool
+    - role: integrity_checks
+      tags: [integrity]
+      when: harden_enable_rkhunter | bool
+    - role: audit_framework
+      tags: [auditd]
+    - role: security_audit
+      tags: [lynis]

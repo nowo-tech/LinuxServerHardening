@@ -1,0 +1,102 @@
+---
+- name: Set UFW default deny incoming
+  community.general.ufw:
+    direction: incoming
+    policy: deny
+
+- name: Set UFW default deny outgoing
+  community.general.ufw:
+    direction: outgoing
+    policy: deny
+
+- name: Rate-limit SSH on the hardened port
+  community.general.ufw:
+    rule: limit
+    port: "{{ harden_ssh_port }}"
+    proto: tcp
+    comment: SSH
+
+- name: Allow required outbound ports
+  community.general.ufw:
+    rule: allow
+    direction: out
+    port: "{{ item.port }}"
+    proto: "{{ item.proto }}"
+    comment: "{{ item.comment | default(omit) }}"
+  loop: "{{ harden_ufw_allow_out_ports }}"
+
+- name: Allow explicit inbound application ports
+  community.general.ufw:
+    rule: allow
+    direction: in
+    port: "{{ item.port }}"
+    proto: "{{ item.proto }}"
+    comment: "{{ item.comment | default(omit) }}"
+  loop: "{{ harden_ufw_allow_in }}"
+
+- name: Enable UFW logging and firewall
+  community.general.ufw:
+    state: enabled
+    logging: "on"
+  notify: Reload ufw
+
+- name: Install Fail2Ban jail for sshd
+  ansible.builtin.copy:
+    dest: /etc/fail2ban/jail.d/sshd-nowo.local
+    mode: "0644"
+    content: |
+      [DEFAULT]
+      bantime  = {{ harden_fail2ban_bantime }}
+      findtime = 10m
+      maxretry = {{ harden_fail2ban_maxretry }}
+      destemail = {{ harden_mail_to }}
+      sender = {{ harden_mail_from }}
+      action = %(action_mwl)s
+
+      [sshd]
+      enabled = true
+      port = {{ harden_ssh_port }}
+      backend = systemd
+  notify: Restart fail2ban
+
+- name: Ensure Fail2Ban is running
+  ansible.builtin.service:
+    name: fail2ban
+    state: started
+    enabled: true
+
+- name: Configure PSAD basics
+  when: harden_enable_psad | bool
+  ansible.builtin.lineinfile:
+    path: /etc/psad/psad.conf
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+  loop:
+    - { regexp: '^EMAIL_ADDRESSES', line: "EMAIL_ADDRESSES {{ harden_mail_to }};" }
+    - { regexp: '^HOSTNAME', line: "HOSTNAME {{ ansible_hostname }};" }
+    - { regexp: '^ENABLE_PSADWATCHD', line: "ENABLE_PSADWATCHD Y;" }
+    - { regexp: '^ENABLE_AUTO_IDS ', line: "ENABLE_AUTO_IDS Y;" }
+    - { regexp: '^ENABLE_AUTO_IDS_EMAILS', line: "ENABLE_AUTO_IDS_EMAILS Y;" }
+    - { regexp: '^AUTO_IDS_DANGER_LEVEL', line: "AUTO_IDS_DANGER_LEVEL 3;" }
+    - { regexp: '^EXPECT_TCP_OPTIONS', line: "EXPECT_TCP_OPTIONS Y;" }
+  notify: Restart psad
+
+- name: Ensure UFW before.rules logs traffic for PSAD
+  when: harden_enable_psad | bool
+  ansible.builtin.blockinfile:
+    path: /etc/ufw/before.rules
+    insertbefore: "^COMMIT"
+    marker: "# {mark} NOWO PSAD LOGGING"
+    block: |
+      -A INPUT -j LOG --log-tcp-options --log-prefix "[IPTABLES] "
+      -A FORWARD -j LOG --log-tcp-options --log-prefix "[IPTABLES] "
+  notify:
+    - Reload ufw
+    - Restart psad
+
+- name: Ensure PSAD is running
+  when: harden_enable_psad | bool
+  ansible.builtin.service:
+    name: psad
+    state: started
+    enabled: true

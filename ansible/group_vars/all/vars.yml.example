@@ -1,0 +1,59 @@
+---
+# Non-secret defaults. Copy to vars.yml and adjust.
+
+harden_admin_user: admin
+harden_ssh_port: 2222
+harden_ssh_public_key_path: "~/.ssh/lab_ed25519.pub"
+
+harden_groups:
+  ssh: sshaccess
+  sudo: elevated
+  su: switchroot
+
+harden_passwordless_sudo: true
+
+harden_mail_to: security@example.com
+harden_mail_from: server-alerts@example.com
+harden_smtp_host: smtp.example.com
+harden_smtp_port: 587
+
+harden_ufw_allow_out_ports:
+  - { port: "53", proto: "any", comment: "DNS" }
+  - { port: "123", proto: "udp", comment: "NTP" }
+  - { port: "80", proto: "tcp", comment: "HTTP" }
+  - { port: "443", proto: "tcp", comment: "HTTPS" }
+  - { port: "587", proto: "tcp", comment: "SMTP submission" }
+
+harden_ufw_allow_in: []
+# Example app rule:
+# harden_ufw_allow_in:
+#   - { port: "443", proto: "tcp", comment: "HTTPS" }
+
+harden_fail2ban_bantime: 1h
+harden_fail2ban_maxretry: 5
+
+harden_enable_psad: true
+harden_enable_clamav: true
+harden_enable_rkhunter: true
+harden_enable_lynis_mail_report: true
+
+harden_packages:
+  - apt-listchanges
+  - apt-transport-https
+  - apticron
+  - audispd-plugins
+  - auditd
+  - ca-certificates
+  - clamav
+  - clamav-daemon
+  - clamav-freshclam
+  - curl
+  - fail2ban
+  - libpam-pwquality
+  - mailutils
+  - msmtp
+  - msmtp-mta
+  - psad
+  - rkhunter
+  - ufw
+  - unattended-upgrades

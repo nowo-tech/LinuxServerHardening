@@ -1,0 +1,6 @@
+---
+# Encrypt this file: ansible-vault encrypt vault.yml
+# Never commit the plaintext version.
+
+vault_admin_password: "CHANGE_ME_STRONG_PASSWORD"
+vault_smtp_password: "CHANGE_ME_SMTP_PASSWORD"

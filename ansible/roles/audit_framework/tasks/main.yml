@@ -1,0 +1,21 @@
+---
+- name: Ensure auditd is enabled
+  ansible.builtin.service:
+    name: auditd
+    state: started
+    enabled: true
+
+- name: Install focused identity watch rules
+  ansible.builtin.copy:
+    dest: /etc/audit/rules.d/20-nowo-identity.rules
+    mode: "0640"
+    content: |
+      ## Nowo focused watches — expand only with log capacity in mind
+      -w /etc/passwd -p wa -k identity
+      -w /etc/group -p wa -k identity
+      -w /etc/shadow -p wa -k identity
+      -w /etc/sudoers -p wa -k privilege
+      -w /etc/sudoers.d -p wa -k privilege
+      -w /etc/ssh/sshd_config -p wa -k sshd
+      -w /etc/ssh/sshd_config.d -p wa -k sshd
+  notify: Reload audit rules

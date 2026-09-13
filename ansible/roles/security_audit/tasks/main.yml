@@ -1,0 +1,63 @@
+---
+- name: Try Lynis from distribution repositories
+  ansible.builtin.apt:
+    name: lynis
+    state: present
+  register: lynis_distro
+  ignore_errors: true
+
+- name: Install Lynis from Cisofy community repository
+  when: lynis_distro is failed
+  block:
+    - name: Install gpg
+      ansible.builtin.apt:
+        name: gpg
+        state: present
+
+    - name: Fetch Cisofy signing key
+      ansible.builtin.get_url:
+        url: https://packages.cisofy.com/keys/cisofy-software-public.key
+        dest: /usr/share/keyrings/cisofy-archive-keyring.asc
+        mode: "0644"
+
+    - name: Dearmor Cisofy key
+      ansible.builtin.command: >-
+        gpg --dearmor -o /usr/share/keyrings/cisofy-archive-keyring.gpg
+        /usr/share/keyrings/cisofy-archive-keyring.asc
+      args:
+        creates: /usr/share/keyrings/cisofy-archive-keyring.gpg
+
+    - name: Add Cisofy Lynis apt source
+      ansible.builtin.apt_repository:
+        repo: >-
+          deb [signed-by=/usr/share/keyrings/cisofy-archive-keyring.gpg]
+          https://packages.cisofy.com/community/lynis/deb stable main
+        filename: cisofy-lynis
+        state: present
+
+    - name: Install Lynis package
+      ansible.builtin.apt:
+        name: lynis
+        state: present
+        update_cache: true
+
+- name: Run Lynis system audit
+  when: harden_lynis_force_run | default(true) | bool
+  ansible.builtin.command: lynis audit system --quick
+  register: lynis_run
+  changed_when: false
+  failed_when: false
+
+- name: Mail Lynis report when enabled
+  when:
+    - harden_enable_lynis_mail_report | bool
+    - lynis_run is defined
+  ansible.builtin.shell: |
+    set -euo pipefail
+    report="/var/log/lynis-report.dat"
+    if [ -f "$report" ]; then
+      mail -s "[{{ ansible_hostname }}] Lynis report" {{ harden_mail_to }} < "$report" || true
+    fi
+  args:
+    executable: /bin/bash
+  changed_when: false

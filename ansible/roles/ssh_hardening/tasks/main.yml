@@ -1,0 +1,71 @@
+---
+- name: Pre-allow SSH port in UFW before sshd reload
+  community.general.ufw:
+    rule: limit
+    port: "{{ harden_ssh_port }}"
+    proto: tcp
+    comment: SSH
+  notify: Reload ufw
+
+- name: Flush handlers so SSH port is open before sshd changes
+  ansible.builtin.meta: flush_handlers
+
+- name: Install sshd hardening drop-in
+  ansible.builtin.copy:
+    dest: /etc/ssh/sshd_config.d/10-nowo-hardening.conf
+    mode: "0644"
+    owner: root
+    group: root
+    content: |
+      Port {{ harden_ssh_port }}
+      PermitRootLogin no
+      PasswordAuthentication no
+      KbdInteractiveAuthentication no
+      PubkeyAuthentication yes
+      AllowGroups {{ harden_groups.ssh }}
+      LoginGraceTime 30
+      MaxAuthTries 3
+      MaxSessions 3
+      MaxStartups 10:30:60
+      ClientAliveInterval 300
+      ClientAliveCountMax 2
+      X11Forwarding no
+      AllowAgentForwarding no
+      AllowTcpForwarding no
+      PermitTunnel no
+      GatewayPorts no
+      PermitEmptyPasswords no
+      PermitUserEnvironment no
+      DebianBanner no
+      HostKey /etc/ssh/ssh_host_ed25519_key
+      HostKey /etc/ssh/ssh_host_rsa_key
+  notify: Reload ssh
+
+- name: Backup SSH moduli once
+  ansible.builtin.copy:
+    src: /etc/ssh/moduli
+    dest: /etc/ssh/moduli.nowo.bak
+    remote_src: true
+    force: false
+    mode: "0644"
+
+- name: Keep Diffie-Hellman moduli at or above 3071 bits
+  ansible.builtin.shell: |
+    set -euo pipefail
+    awk '$5 >= 3071' /etc/ssh/moduli.nowo.bak > /etc/ssh/moduli.nowo.tmp
+    if ! cmp -s /etc/ssh/moduli /etc/ssh/moduli.nowo.tmp; then
+      mv /etc/ssh/moduli.nowo.tmp /etc/ssh/moduli
+      echo CHANGED
+    else
+      rm -f /etc/ssh/moduli.nowo.tmp
+      echo OK
+    fi
+  args:
+    executable: /bin/bash
+  register: moduli_trim
+  changed_when: "'CHANGED' in moduli_trim.stdout"
+  notify: Reload ssh
+
+- name: Validate sshd configuration
+  ansible.builtin.command: sshd -t
+  changed_when: false

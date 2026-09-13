@@ -1,0 +1,38 @@
+---
+- name: Render msmtp configuration
+  ansible.builtin.template:
+    src: msmtprc.j2
+    dest: /etc/msmtprc
+    mode: "0640"
+    owner: root
+    group: msmtp
+
+- name: Map root mail to alert inbox
+  ansible.builtin.lineinfile:
+    path: /etc/aliases
+    regexp: '^root:'
+    line: "root: {{ harden_mail_to }}"
+    create: true
+
+- name: Map default alias
+  ansible.builtin.lineinfile:
+    path: /etc/aliases
+    regexp: '^default:'
+    line: "default: {{ harden_mail_to }}"
+    create: true
+
+- name: Point mail(1) at msmtp
+  ansible.builtin.lineinfile:
+    path: /etc/mail.rc
+    regexp: '^set sendmail'
+    line: 'set sendmail="/usr/bin/msmtp -t"'
+    create: true
+
+- name: Send bootstrap test message
+  ansible.builtin.shell: |
+    echo "LinuxServerHardening mail path is working on {{ ansible_hostname }}" \
+      | mail -s "[{{ ansible_hostname }}] mail path ok" {{ harden_mail_to }}
+  args:
+    executable: /bin/bash
+  changed_when: false
+  failed_when: false

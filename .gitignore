@@ -1,0 +1,29 @@
+# Secrets and local inventory
+ansible/inventories/**/*.vault.yml
+ansible/group_vars/**/vault.yml
+ansible/group_vars/**/*secret*
+*.vault
+*.pem
+*.key
+id_rsa*
+id_ed25519*
+!*.pub.example
+
+# Ansible
+*.retry
+.ansible/
+ansible.log
+ansible/collections/
+
+# Editor / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Local overrides
+.env
+.env.*
+inventory.local.yml
+hosts.local.yml

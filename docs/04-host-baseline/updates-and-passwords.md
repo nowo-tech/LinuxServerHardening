@@ -1,0 +1,74 @@
+# Updates and password quality
+
+## Threat
+
+Unpatched OpenSSH, OpenSSL, or kernel CVEs are how “quiet” servers get owned months after install. Weak local passwords matter for console, `sudo`, and any service that still uses PAM.
+
+## Do
+
+### Unattended security updates
+
+```bash
+apt install -y unattended-upgrades apt-listchanges
+
+dpkg-reconfigure -plow unattended-upgrades
+```
+
+Minimal policy file:
+
+```text
+# /etc/apt/apt.conf.d/50unattended-upgrades (excerpt)
+Unattended-Upgrade::Origins-Pattern {
+    "origin=Debian,codename=${distro_codename}-security";
+};
+Unattended-Upgrade::Automatic-Reboot "true";
+Unattended-Upgrade::Automatic-Reboot-Time "04:30";
+Unattended-Upgrade::Mail "security@example.com";
+```
+
+For production clusters, turn automatic reboot **off** and schedule restarts yourself.
+
+### Password quality via PAM
+
+```bash
+apt install -y libpam-pwquality
+```
+
+Example `/etc/security/pwquality.conf` knobs:
+
+```text
+minlen = 12
+dcredit = -1
+ucredit = -1
+lcredit = -1
+ocredit = -1
+maxrepeat = 3
+difok = 4
+dictcheck = 1
+```
+
+Ensure `pam_pwquality.so` is referenced from `/etc/pam.d/common-password`.
+
+## Why
+
+Security origins limit surprise. Feature freezes in `stable` already reduce churn; security pockets fix known holes. Password quality does not help SSH if passwords are disabled — it still protects local escalation and recovery workflows.
+
+## Verify
+
+```bash
+unattended-upgrade --dry-run --debug 2>&1 | tail -20
+grep pam_pwquality /etc/pam.d/common-password
+# Try setting a bad password for a test user — it should be rejected
+```
+
+## Rollback
+
+```bash
+# Disable auto upgrades
+echo 'APT::Periodic::Unattended-Upgrade "0";' > /etc/apt/apt.conf.d/20auto-upgrades.disable
+# Revert pam line from backup
+```
+
+## Next
+
+[kernel-and-sysctl.md](kernel-and-sysctl.md)
