@@ -41,7 +41,7 @@ flowchart TB
 | NTP / timesync | D | A | Debian 13 timesyncd vs ≤12 ntp |
 | Unattended security upgrades | D | A | Auto-reboot **off** by default |
 | apticron + apt-listchanges | D | A | |
-| Kernel sysctl hardening | D | A | |
+| Kernel sysctl hardening | D | A | Includes kptr/dmesg/ptrace/link protect |
 | AppArmor guidance | D | — | Advanced; enforce carefully |
 | UFW default-deny in/out | D | A | |
 | Fail2Ban sshd + mail actions | D | A | `action_mwl`; egress includes WHOIS/43 |
@@ -51,10 +51,10 @@ flowchart TB
 | Refuse vault `CHANGE_ME_*` | D | A | Asserted on harden |
 | MFA coupling (role + nullok) | D | A | Asserted before sshd MFA enforce |
 | Strict ops (mail/psad/lynis) | D | A | `harden_strict_ops` default on; lab off |
-| PSAD (detect / alert) | D | A | LOG on `ufw-before-*` chains |
+| PSAD (detect / alert) | D | A | LOG on `ufw-after-*` (non-accepted only) |
 | PSAD AUTO_IDS (auto-block) | D | F | Opt-in |
-| Dedicated iptables log + rotate | D | A | `[IPTABLES]` + `[UFW BLOCK]` |
-| IPv6 UFW log hooks | D | A | `ufw6-before-*` |
+| Dedicated iptables log + rotate | D | A | `[IPTABLES]` + `[UFW BLOCK]`; migrates off before-* |
+| IPv6 UFW log hooks | D | A | `ufw6-after-*` |
 | Docker vs UFW pitfalls | D | — | Doc only |
 | CrowdSec alternative | D | — | Doc; one IPS at a time |
 | msmtp outbound alerts | D | A | `0600` config + log file |

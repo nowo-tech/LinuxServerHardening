@@ -40,25 +40,41 @@
     logging: "on"
   notify: Reload ufw
 
-- name: Log traffic on UFW before-chains for PSAD (IPv4)
+# Remove legacy before-chain LOGs (logged allowed traffic → PSAD noise)
+- name: Remove noisy before-chain iptables LOG hooks (IPv4)
   ansible.builtin.blockinfile:
     path: /etc/ufw/before.rules
-    insertbefore: "^COMMIT"
     marker: "# {mark} NOWO IPTABLES LOGGING"
-    block: |
-      # Attach to UFW chains (not raw INPUT) so packets are still evaluated by UFW
-      -A ufw-before-input -m limit --limit 30/min --limit-burst 50 -j LOG --log-tcp-options --log-prefix "[IPTABLES] "
-      -A ufw-before-forward -m limit --limit 30/min --limit-burst 50 -j LOG --log-tcp-options --log-prefix "[IPTABLES] "
+    state: absent
   notify: Reload ufw
 
-- name: Log traffic on UFW before-chains for PSAD (IPv6)
+- name: Remove noisy before-chain iptables LOG hooks (IPv6)
   ansible.builtin.blockinfile:
     path: /etc/ufw/before6.rules
+    marker: "# {mark} NOWO IPTABLES LOGGING"
+    state: absent
+  notify: Reload ufw
+
+# after-* only sees packets not ACCEPTed by user rules (denied / fall-through)
+- name: Log non-accepted traffic on UFW after-chains for PSAD (IPv4)
+  ansible.builtin.blockinfile:
+    path: /etc/ufw/after.rules
     insertbefore: "^COMMIT"
     marker: "# {mark} NOWO IPTABLES LOGGING"
     block: |
-      -A ufw6-before-input -m limit --limit 30/min --limit-burst 50 -j LOG --log-tcp-options --log-prefix "[IPTABLES] "
-      -A ufw6-before-forward -m limit --limit 30/min --limit-burst 50 -j LOG --log-tcp-options --log-prefix "[IPTABLES] "
+      # Rate-limited LOG for packets that reached after-* (not accepted earlier)
+      -A ufw-after-input -m limit --limit 30/min --limit-burst 50 -j LOG --log-tcp-options --log-prefix "[IPTABLES] "
+      -A ufw-after-forward -m limit --limit 30/min --limit-burst 50 -j LOG --log-tcp-options --log-prefix "[IPTABLES] "
+  notify: Reload ufw
+
+- name: Log non-accepted traffic on UFW after-chains for PSAD (IPv6)
+  ansible.builtin.blockinfile:
+    path: /etc/ufw/after6.rules
+    insertbefore: "^COMMIT"
+    marker: "# {mark} NOWO IPTABLES LOGGING"
+    block: |
+      -A ufw6-after-input -m limit --limit 30/min --limit-burst 50 -j LOG --log-tcp-options --log-prefix "[IPTABLES] "
+      -A ufw6-after-forward -m limit --limit 30/min --limit-burst 50 -j LOG --log-tcp-options --log-prefix "[IPTABLES] "
   notify: Reload ufw
 
 - name: Route firewall-tagged logs to a dedicated file

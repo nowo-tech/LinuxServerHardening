@@ -34,9 +34,16 @@ net.ipv6.conf.all.accept_source_route = 0
 
 # Log martians
 net.ipv4.conf.all.log_martians = 1
+net.ipv4.conf.default.log_martians = 1
+net.ipv6.conf.default.accept_source_route = 0
 
-# ASLR
+# ASLR + harden kernel info leaks / ptrace / link following
 kernel.randomize_va_space = 2
+kernel.kptr_restrict = 2
+kernel.dmesg_restrict = 1
+kernel.yama.ptrace_scope = 1
+fs.protected_hardlinks = 1
+fs.protected_symlinks = 1
 ```
 
 Apply:

@@ -58,6 +58,27 @@
         that:
           - "'Status: active' in ufw_status.stdout"
 
+    - name: After-chain PSAD LOG hooks present
+      ansible.builtin.command: grep -F 'NOWO IPTABLES LOGGING' /etc/ufw/after.rules
+      register: after_log
+      changed_when: false
+
+    - name: Require after.rules logging marker
+      ansible.builtin.assert:
+        that:
+          - after_log.rc == 0
+
+    - name: Legacy before-chain LOG hooks must be gone
+      ansible.builtin.shell: |
+        set -euo pipefail
+        if grep -q 'NOWO IPTABLES LOGGING' /etc/ufw/before.rules 2>/dev/null; then
+          exit 1
+        fi
+        exit 0
+      args:
+        executable: /bin/bash
+      changed_when: false
+
     - name: Fail2Ban sshd jail present
       ansible.builtin.stat:
         path: /etc/fail2ban/jail.d/sshd-nowo.local
@@ -67,3 +88,7 @@
       ansible.builtin.assert:
         that:
           - f2b_jail.stat.exists
+
+    - name: Sysctl includes kptr_restrict
+      ansible.builtin.command: grep -F 'kernel.kptr_restrict = 2' /etc/sysctl.d/60-nowo-hardening.conf
+      changed_when: false

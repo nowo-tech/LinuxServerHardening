@@ -63,7 +63,7 @@ Ensure UFW logs dropped traffic so PSAD has input. Tune danger levels carefully;
 
 ### Dedicated firewall log file
 
-Attach rate-limited `LOG` rules to **`ufw-before-input` / `ufw-before-forward`** (and IPv6 equivalents), prefix `[IPTABLES] `, ship them (plus `[UFW BLOCK]`) to `/var/log/iptables.log`, point PSAD `IPT_SYSLOG_FILE` there, and rotate daily. The Ansible `firewall_stack` role does this automatically.
+Attach rate-limited `LOG` rules to **`ufw-after-input` / `ufw-after-forward`** (and IPv6 equivalents) so only packets **not** already ACCEPTed are logged (prefix `[IPTABLES] `). Ship those lines plus `[UFW BLOCK]` to `/var/log/iptables.log`, point PSAD `IPT_SYSLOG_FILE` there, and rotate daily. Logging on `ufw-before-*` would also record allowed traffic and flood PSAD. The Ansible `firewall_stack` role migrates away from legacy before-chain hooks automatically.
 
 ### CrowdSec (optional alternative)
 

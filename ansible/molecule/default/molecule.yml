@@ -10,7 +10,8 @@ driver:
   name: docker
 platforms:
   - name: debian13-harden
-    image: geerlingguy/docker-debian13-ansible:latest
+    # Pin digest for supply-chain stability (bump intentionally when refreshing)
+    image: geerlingguy/docker-debian13-ansible@sha256:66663f77a975012e9da0ff3896d402a412db97c1db20b1cf703f3a6dd169ccf1
     pre_build_image: true
     command: ""
     volumes:
