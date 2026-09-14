@@ -229,3 +229,44 @@
     harden_ssh_port: 2222
   roles:
     - role: monitoring_stack
+
+- name: Converge — prove webhook deploy disable uninstalls idempotently
+  hosts: all
+  become: true
+  gather_facts: false
+  vars:
+    harden_enable_gha_runner: false
+    harden_enable_webhook_deploy: false
+    harden_webhook_deploy_listen: "127.0.0.1:9000"
+    harden_webhook_deploy_allow_from:
+      - any
+    harden_webhook_deploy_ufw_allow: false
+  roles:
+    - role: deploy_agents
+  tasks:
+    - name: Webhook unit must be absent
+      ansible.builtin.stat:
+        path: /etc/systemd/system/nowo-webhook-deploy.service
+      register: wh
+
+    - name: Require webhook gone
+      ansible.builtin.assert:
+        that:
+          - not wh.stat.exists
+
+- name: Converge — re-enable webhook deploy for final verify
+  hosts: all
+  become: true
+  gather_facts: false
+  vars:
+    harden_enable_gha_runner: false
+    harden_enable_webhook_deploy: true
+    harden_webhook_deploy_listen: "127.0.0.1:9000"
+    harden_webhook_deploy_path: /hooks/deploy
+    harden_webhook_deploy_repo_path: /var/www/app
+    harden_webhook_deploy_branch: main
+    harden_webhook_deploy_restart_service: ""
+    harden_webhook_deploy_ufw_allow: false
+    vault_webhook_deploy_secret: "MoleculeWebhookSecret123!"
+  roles:
+    - role: deploy_agents
