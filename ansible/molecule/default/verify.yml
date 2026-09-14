@@ -29,10 +29,11 @@
         src: /etc/ssh/sshd_config.d/10-nowo-hardening.conf
       register: sshd_conf
 
-    - name: MFA must stay off in smoke converge
+    - name: MFA wired but not enforced (nullok staging)
       ansible.builtin.assert:
         that:
           - "'AuthenticationMethods' not in (sshd_conf.content | b64decode)"
+          - "'KbdInteractiveAuthentication no' in (sshd_conf.content | b64decode)"
 
     - name: Assert sysctl drop-in exists
       ansible.builtin.stat:
@@ -92,3 +93,32 @@
     - name: Sysctl includes kptr_restrict
       ansible.builtin.command: grep -F 'kernel.kptr_restrict = 2' /etc/sysctl.d/60-nowo-hardening.conf
       changed_when: false
+
+    - name: PAM TOTP line is staged with nullok
+      ansible.builtin.command: grep -F 'pam_google_authenticator.so nullok' /etc/pam.d/sshd
+      changed_when: false
+
+    - name: msmtp config is root-only
+      ansible.builtin.stat:
+        path: /etc/msmtprc
+      register: msmtprc
+
+    - name: Require msmtp 0600
+      ansible.builtin.assert:
+        that:
+          - msmtprc.stat.exists
+          - msmtprc.stat.mode == '0600'
+
+    - name: Lynis is installed from Debian (no third-party repo)
+      ansible.builtin.command: dpkg -s lynis
+      changed_when: false
+
+    - name: Cisofy third-party list must stay absent
+      ansible.builtin.stat:
+        path: /etc/apt/sources.list.d/cisofy-lynis.list
+      register: cisofy_list
+
+    - name: Require no Cisofy source
+      ansible.builtin.assert:
+        that:
+          - not cisofy_list.stat.exists

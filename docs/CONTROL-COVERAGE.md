@@ -85,6 +85,7 @@ flowchart TB
 ## Residual risks
 
 - Focused auditd rules are not a full enterprise syscall pack.
-- CrowdSec and Docker firewalling need human design.
+- CrowdSec and Docker firewalling need human design (documented, not automated).
+- Molecule CI covers staging MFA, msmtp file perms, and Lynis package install — not live SMTP, TOTP enrolment, or a full Lynis audit run.
 - Physical/console threats remain operator-owned.
 - Application security is out of scope.

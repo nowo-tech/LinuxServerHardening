@@ -1,5 +1,5 @@
 ---
-- name: Converge — packages, identity, SSH, firewall
+- name: Converge — identity, SSH, staged MFA, firewall, mail, Lynis
   hosts: all
   become: true
   gather_facts: true
@@ -16,7 +16,8 @@
     harden_ssh_port: 2222
     harden_ssh_use_dns: "no"
     harden_ssh_mfa_enable: false
-    harden_enable_mfa_role: false
+    harden_ssh_mfa_nullok: true
+    harden_enable_mfa_role: true
     harden_fail2ban_require_ignoreip: false
     harden_fail2ban_ignoreip: "127.0.0.1"
     harden_strict_ops: false
@@ -26,6 +27,9 @@
     harden_enable_chkrootkit: false
     harden_enable_aide: false
     harden_enable_logwatch: false
+    harden_lynis_force_run: false
+    harden_enable_lynis_mail_report: false
+    harden_allow_third_party_lynis_repo: false
     harden_mail_to: molecule@example.com
     harden_mail_from: molecule@example.com
     harden_smtp_host: localhost
@@ -36,7 +40,12 @@
       - ca-certificates
       - curl
       - fail2ban
+      - libpam-google-authenticator
       - libpam-pwquality
+      - lynis
+      - mailutils
+      - msmtp
+      - msmtp-mta
       - openssh-server
       - psad
       - rsyslog
@@ -53,4 +62,7 @@
     - role: host_sysctl
     - role: password_policy
     - role: ssh_hardening
+    - role: ssh_mfa
     - role: firewall_stack
+    - role: outbound_mail
+    - role: security_audit

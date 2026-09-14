@@ -1,5 +1,5 @@
 ---
-# Minimal Molecule skeleton for Debian converge smoke tests.
+# Debian 13 Docker smoke: identity, SSH, staged MFA, UFW/IDS, msmtp, Lynis install.
 # Requires: pip install molecule molecule-plugins[docker] ansible-core
 # Run from ansible/: molecule test
 dependency:
