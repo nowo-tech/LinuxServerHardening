@@ -40,4 +40,4 @@ apt purge -y logwatch
 
 ## Next
 
-[continuous-review.md](continuous-review.md)
+[monitoring-and-healthchecks.md](monitoring-and-healthchecks.md) · [cicd-and-deploy.md](cicd-and-deploy.md) · [continuous-review.md](continuous-review.md)
