@@ -4,3 +4,7 @@
 
 vault_admin_password: "CHANGE_ME_STRONG_PASSWORD"
 vault_smtp_password: "CHANGE_ME_SMTP_PASSWORD"
+# GitHub Actions self-hosted runner registration / removal token (short-lived)
+vault_gha_runner_token: "CHANGE_ME_GHA_RUNNER_TOKEN"
+# Shared secret for GitHub/Gitea push webhooks (X-Hub-Signature-256)
+vault_webhook_deploy_secret: "CHANGE_ME_WEBHOOK_SECRET"

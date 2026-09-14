@@ -209,3 +209,27 @@
       ansible.builtin.assert:
         that:
           - monit_conf.stat.exists
+
+    - name: Webhook deploy is active
+      ansible.builtin.command: systemctl is-active nowo-webhook-deploy
+      changed_when: false
+
+    - name: Webhook healthz responds
+      ansible.builtin.command: curl -fsS --max-time 5 http://127.0.0.1:9000/hooks/deploy/healthz
+      register: wh_health
+      changed_when: false
+
+    - name: Require webhook healthz
+      ansible.builtin.assert:
+        that:
+          - "'ok' in wh_health.stdout"
+
+    - name: GHA runner stays disabled in smoke
+      ansible.builtin.stat:
+        path: /etc/systemd/system/actions.runner.nowo.service
+      register: gha_unit
+
+    - name: Require no GHA runner unit
+      ansible.builtin.assert:
+        that:
+          - not gha_unit.stat.exists

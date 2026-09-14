@@ -1,0 +1,11 @@
+---
+# Deploy agents — always applied so enable=false stops/uninstalls idempotently.
+# Tags: deploy, runner, gha_runner, webhook_deploy
+
+- name: Manage GitHub Actions self-hosted runner
+  ansible.builtin.include_tasks: gha_runner.yml
+  tags: [deploy, runner, gha_runner]
+
+- name: Manage webhook auto-deploy on git push
+  ansible.builtin.include_tasks: webhook_deploy.yml
+  tags: [deploy, webhook_deploy]

@@ -68,7 +68,9 @@ flowchart TB
 | node_exporter | D | F | `harden_enable_node_exporter` (false → purge) |
 | Health watchdog | D | F | `harden_enable_health_watchdog` (false → remove) |
 | Monit | D | F | `harden_enable_monit` (false → purge) |
-| CI/CD deploy contract | D | — | Runner ignoreip, hardened SSH, health gates |
+| GitHub Actions self-hosted runner | D | F | `harden_enable_gha_runner` (false → stop/unregister/purge) |
+| Webhook push deploy | D | F | `harden_enable_webhook_deploy` (false → remove unit) |
+| CI/CD deploy contract | D | F | Docs + deploy_agents role |
 | Lynis via `03-audit.yml` | D | A | Debian packages by default |
 | Third-party Lynis APT repo | D | F | Supply-chain opt-in |
 | hidepid / umask / lock root / GRUB | D | — | Advanced optional |
@@ -93,7 +95,8 @@ flowchart TB
 - Focused auditd rules are not a full enterprise syscall pack.
 - CrowdSec, Docker+UFW, and AppArmor remain **documented only** (operator design; not automated).
 - Monitoring: **node_exporter / health_watchdog / Monit** are Ansible **opt-in** (`harden_enable_*`); external SaaS uptime and full Prometheus/Grafana stay operator-owned.
-- Product CI/CD remains a **documented contract** — this kit’s GitHub Actions lint/Molecule; your deploy pipelines stay yours.
+- Deploy agents: **GHA self-hosted runner** and **push webhook deploy** are Ansible **opt-in**; GitHub-hosted runners and full CD platforms stay operator-owned.
+- Product CI/CD beyond these agents remains a **documented contract** — this kit’s GitHub Actions lint/Molecule still only validates the kit itself.
 - Molecule exercises a **local SMTP sink**, **seeded TOTP → MFA enforce**, and **`lynis audit system --quick`** — not a production SMTP provider or interactive phone enrolment.
 - Physical/console threats remain operator-owned.
 - Application security is out of scope.

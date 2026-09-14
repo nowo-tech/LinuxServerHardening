@@ -1,0 +1,213 @@
+---
+- name: Require registration token when enabling GHA runner
+  when: harden_enable_gha_runner | default(false) | bool
+  ansible.builtin.assert:
+    that:
+      - vault_gha_runner_token is defined
+      - vault_gha_runner_token | length > 0
+      - "'CHANGE_ME' not in (vault_gha_runner_token | string)"
+      - harden_gha_runner_url is defined
+      - harden_gha_runner_url | length > 0
+      - "'REPLACE_ME' not in (harden_gha_runner_url | string)"
+    fail_msg: >-
+      harden_enable_gha_runner=true needs harden_gha_runner_url (repo or org URL)
+      and vault_gha_runner_token (GitHub registration token, not CHANGE_ME_*).
+
+- name: Install GHA runner dependencies
+  when: harden_enable_gha_runner | default(false) | bool
+  ansible.builtin.apt:
+    name:
+      - curl
+      - tar
+      - jq
+      - ca-certificates
+    state: present
+
+- name: Create GHA runner system user
+  when: harden_enable_gha_runner | default(false) | bool
+  ansible.builtin.user:
+    name: "{{ harden_gha_runner_user | default('gha-runner') }}"
+    system: true
+    create_home: true
+    home: "{{ harden_gha_runner_home | default('/opt/actions-runner') }}"
+    shell: /usr/sbin/nologin
+    state: present
+
+- name: Ensure GHA runner home exists
+  when: harden_enable_gha_runner | default(false) | bool
+  ansible.builtin.file:
+    path: "{{ harden_gha_runner_home | default('/opt/actions-runner') }}"
+    state: directory
+    owner: "{{ harden_gha_runner_user | default('gha-runner') }}"
+    group: "{{ harden_gha_runner_user | default('gha-runner') }}"
+    mode: "0750"
+
+- name: Download GitHub Actions runner tarball
+  when: harden_enable_gha_runner | default(false) | bool
+  ansible.builtin.get_url:
+    url: >-
+      https://github.com/actions/runner/releases/download/v{{ harden_gha_runner_version }}/actions-runner-linux-{{ harden_gha_runner_arch | default('x64') }}-{{ harden_gha_runner_version }}.tar.gz
+    dest: "/tmp/actions-runner-{{ harden_gha_runner_version }}.tar.gz"
+    mode: "0644"
+    checksum: "{{ harden_gha_runner_checksum | default(omit) }}"
+
+- name: Check whether runner binaries are already extracted
+  when: harden_enable_gha_runner | default(false) | bool
+  ansible.builtin.stat:
+    path: "{{ harden_gha_runner_home | default('/opt/actions-runner') }}/run.sh"
+  register: gha_run_sh
+
+- name: Read installed runner version stamp
+  when: harden_enable_gha_runner | default(false) | bool
+  ansible.builtin.slurp:
+    src: "{{ harden_gha_runner_home | default('/opt/actions-runner') }}/.nowo-runner-version"
+  register: gha_ver_stamp
+  failed_when: false
+
+- name: Extract Actions runner when missing or version changed
+  when:
+    - harden_enable_gha_runner | default(false) | bool
+    - >-
+      (not gha_run_sh.stat.exists)
+      or (gha_ver_stamp.content is not defined)
+      or ((gha_ver_stamp.content | default('') | b64decode | trim) != (harden_gha_runner_version | string))
+  ansible.builtin.unarchive:
+    src: "/tmp/actions-runner-{{ harden_gha_runner_version }}.tar.gz"
+    dest: "{{ harden_gha_runner_home | default('/opt/actions-runner') }}"
+    remote_src: true
+    owner: "{{ harden_gha_runner_user | default('gha-runner') }}"
+    group: "{{ harden_gha_runner_user | default('gha-runner') }}"
+
+- name: Install runner OS libraries (official helper)
+  when: harden_enable_gha_runner | default(false) | bool
+  ansible.builtin.command: ./bin/installdependencies.sh
+  args:
+    chdir: "{{ harden_gha_runner_home | default('/opt/actions-runner') }}"
+  register: gha_deps
+  changed_when: false
+  failed_when: false
+
+- name: Write runner version stamp
+  when: harden_enable_gha_runner | default(false) | bool
+  ansible.builtin.copy:
+    dest: "{{ harden_gha_runner_home | default('/opt/actions-runner') }}/.nowo-runner-version"
+    content: "{{ harden_gha_runner_version }}\n"
+    owner: "{{ harden_gha_runner_user | default('gha-runner') }}"
+    group: "{{ harden_gha_runner_user | default('gha-runner') }}"
+    mode: "0640"
+
+- name: Check whether runner is already configured
+  when: harden_enable_gha_runner | default(false) | bool
+  ansible.builtin.stat:
+    path: "{{ harden_gha_runner_home | default('/opt/actions-runner') }}/.runner"
+  register: gha_configured
+
+- name: Register GitHub Actions runner (once)
+  when:
+    - harden_enable_gha_runner | default(false) | bool
+    - not gha_configured.stat.exists
+  ansible.builtin.command: >
+    ./config.sh --unattended
+    --url {{ harden_gha_runner_url | quote }}
+    --token {{ vault_gha_runner_token | quote }}
+    --name {{ ((harden_gha_runner_name | default('')) | length > 0) | ternary(harden_gha_runner_name, inventory_hostname) | quote }}
+    --labels {{ harden_gha_runner_labels | default('self-hosted,linux,debian') | quote }}
+    --work _work
+    --replace
+  args:
+    chdir: "{{ harden_gha_runner_home | default('/opt/actions-runner') }}"
+  become: true
+  become_user: "{{ harden_gha_runner_user | default('gha-runner') }}"
+  no_log: true
+  register: gha_register
+  changed_when: gha_register.rc == 0
+
+- name: Install systemd unit for GHA runner
+  when: harden_enable_gha_runner | default(false) | bool
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/actions.runner.nowo.service
+    mode: "0644"
+    content: |
+      [Unit]
+      Description=GitHub Actions Runner (Nowo)
+      After=network-online.target
+      Wants=network-online.target
+
+      [Service]
+      Type=simple
+      User={{ harden_gha_runner_user | default('gha-runner') }}
+      WorkingDirectory={{ harden_gha_runner_home | default('/opt/actions-runner') }}
+      ExecStart={{ harden_gha_runner_home | default('/opt/actions-runner') }}/run.sh
+      Restart=always
+      RestartSec=10
+      KillMode=process
+      KillSignal=SIGTERM
+      TimeoutStopSec=5min
+
+      [Install]
+      WantedBy=multi-user.target
+  notify: Reload systemd and restart gha runner
+
+- name: Enable and start GHA runner service
+  when: harden_enable_gha_runner | default(false) | bool
+  ansible.builtin.systemd:
+    name: actions.runner.nowo
+    state: started
+    enabled: true
+    daemon_reload: true
+
+- name: Tear down GHA runner when disabled
+  when: not (harden_enable_gha_runner | default(false) | bool)
+  block:
+    - name: Check GHA systemd unit
+      ansible.builtin.stat:
+        path: /etc/systemd/system/actions.runner.nowo.service
+      register: gha_unit
+
+    - name: Stop GHA runner service
+      when: gha_unit.stat.exists
+      ansible.builtin.systemd:
+        name: actions.runner.nowo
+        state: stopped
+        enabled: false
+      failed_when: false
+
+    - name: Check runner config for removal
+      ansible.builtin.stat:
+        path: "{{ harden_gha_runner_home | default('/opt/actions-runner') }}/.runner"
+      register: gha_cfg_rm
+
+    - name: Unregister runner when removal token provided
+      when:
+        - gha_cfg_rm.stat.exists
+        - vault_gha_runner_token is defined
+        - vault_gha_runner_token | length > 0
+        - "'CHANGE_ME' not in (vault_gha_runner_token | string)"
+      ansible.builtin.command: >
+        ./config.sh remove --token {{ vault_gha_runner_token | quote }}
+      args:
+        chdir: "{{ harden_gha_runner_home | default('/opt/actions-runner') }}"
+      become: true
+      become_user: "{{ harden_gha_runner_user | default('gha-runner') }}"
+      no_log: true
+      failed_when: false
+      changed_when: true
+
+    - name: Remove GHA systemd unit
+      ansible.builtin.file:
+        path: /etc/systemd/system/actions.runner.nowo.service
+        state: absent
+      notify: Reload systemd daemon
+
+    - name: Remove GHA runner install directory
+      when: harden_gha_runner_purge_home | default(true) | bool
+      ansible.builtin.file:
+        path: "{{ harden_gha_runner_home | default('/opt/actions-runner') }}"
+        state: absent
+
+    - name: Remove GHA runner user
+      when: harden_gha_runner_purge_user | default(false) | bool
+      ansible.builtin.user:
+        name: "{{ harden_gha_runner_user | default('gha-runner') }}"
+        state: absent
+        remove: true

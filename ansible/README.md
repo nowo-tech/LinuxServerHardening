@@ -79,10 +79,12 @@ ansible-playbook -i inventories/prod/hosts.yml playbooks/02-harden.yml \
 | `harden_enable_node_exporter` | `false` | `true` | `false` |
 | `harden_enable_health_watchdog` | `false` | `true` | `false` |
 | `harden_enable_monit` | `false` | `true` | `false` |
+| `harden_enable_gha_runner` | `false` | `false` | `false` |
+| `harden_enable_webhook_deploy` | `false` | `false` | `false` |
 
 ## Tags
 
-`packages`, `ntp`, `sysctl`, `ssh`, `mfa`, `passwords`, `updates`, `firewall`, `ids`, `mail`, `malware`, `integrity`, `chkrootkit`, `aide`, `auditd`, `logwatch`, `monitoring`, `metrics`, `node_exporter`, `health`, `health_watchdog`, `monit`, `lynis`.
+`packages`, `ntp`, `sysctl`, `ssh`, `mfa`, `passwords`, `updates`, `firewall`, `ids`, `mail`, `malware`, `integrity`, `chkrootkit`, `aide`, `auditd`, `logwatch`, `monitoring`, `metrics`, `node_exporter`, `health`, `health_watchdog`, `monit`, `deploy`, `runner`, `gha_runner`, `webhook_deploy`, `lynis`.
 
 ## Check mode / Molecule
 
@@ -106,7 +108,7 @@ roles/
   ssh_hardening/ ssh_mfa/ password_policy/ auto_updates/
   firewall_stack/ outbound_mail/
   malware_scan/ integrity_checks/ rootkit_extra/ file_integrity/
-  audit_framework/ log_digest/ monitoring_stack/ security_audit/
+  malware_framework/ log_digest/ monitoring_stack/ deploy_agents/ security_audit/
 profiles/
   lab.yml   prod.yml
 inventories/

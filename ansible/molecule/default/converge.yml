@@ -44,8 +44,18 @@
     harden_health_watchdog_mail: false
     harden_health_probe_urls: []
     harden_enable_monit: true
+    harden_enable_gha_runner: false
+    harden_enable_webhook_deploy: true
+    harden_webhook_deploy_listen: "127.0.0.1:9000"
+    harden_webhook_deploy_path: /hooks/deploy
+    harden_webhook_deploy_repo_path: /var/www/app
+    harden_webhook_deploy_branch: main
+    harden_webhook_deploy_restart_service: ""
+    harden_webhook_deploy_ufw_allow: false
     vault_admin_password: "MoleculeTestPassw0rd!"
     vault_smtp_password: "MoleculeSmtpPassw0rd!"
+    vault_webhook_deploy_secret: "MoleculeWebhookSecret123!"
+    vault_gha_runner_token: "CHANGE_ME_UNUSED"
     harden_packages:
       - ca-certificates
       - curl
@@ -86,6 +96,23 @@
       args:
         executable: /bin/bash
       changed_when: false
+
+    - name: Seed a local git repo for webhook deploy
+      ansible.builtin.shell: |
+        set -euo pipefail
+        apt-get install -y git >/dev/null
+        rm -rf /tmp/nowo-src /var/www/app
+        mkdir -p /tmp/nowo-src
+        git -C /tmp/nowo-src init -b main
+        git -C /tmp/nowo-src config user.email molecule@example.com
+        git -C /tmp/nowo-src config user.name molecule
+        echo 'hello' > /tmp/nowo-src/README.md
+        git -C /tmp/nowo-src add README.md
+        git -C /tmp/nowo-src commit -m 'init'
+        git clone /tmp/nowo-src /var/www/app
+      args:
+        executable: /bin/bash
+      changed_when: false
   roles:
     - role: bootstrap
     - role: admin_user
@@ -96,6 +123,7 @@
     - role: firewall_stack
     - role: outbound_mail
     - role: monitoring_stack
+    - role: deploy_agents
     - role: security_audit
 
 - name: Converge — enforce MFA after seeded TOTP enrolment

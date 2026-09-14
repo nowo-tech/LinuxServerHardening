@@ -96,6 +96,32 @@ harden_monit_daemon_seconds: 120
 harden_monit_load_1min: 8
 harden_monit_memory_pct: 90
 harden_monit_cpu_pct: 95
+
+# Deploy agents (role always runs — false stops/uninstalls idempotently)
+harden_enable_gha_runner: false
+harden_gha_runner_version: "2.337.0"
+harden_gha_runner_arch: x64
+# Optional: harden_gha_runner_checksum: "sha256:..."
+harden_gha_runner_url: "REPLACE_ME_https://github.com/ORG/REPO"
+harden_gha_runner_name: ""
+harden_gha_runner_labels: "self-hosted,linux,debian"
+harden_gha_runner_user: gha-runner
+harden_gha_runner_home: /opt/actions-runner
+harden_gha_runner_purge_home: true
+harden_gha_runner_purge_user: false
+
+harden_enable_webhook_deploy: false
+harden_webhook_deploy_listen: "127.0.0.1:9000"
+harden_webhook_deploy_path: /hooks/deploy
+harden_webhook_deploy_repo_path: /var/www/app
+harden_webhook_deploy_repo_url: ""
+harden_webhook_deploy_branch: main
+harden_webhook_deploy_restart_service: ""
+harden_webhook_deploy_ufw_allow: false
+harden_webhook_deploy_allow_from:
+  - any
+# Optional deploy key path on the host for private repos
+# harden_webhook_deploy_ssh_key: /root/.ssh/deploy_ed25519
 # Lynis on every harden run is slow; 03-audit.yml forces a run
 harden_lynis_force_run: false
 # Third-party Lynis APT repo is OFF by default (supply-chain gate)

@@ -17,3 +17,6 @@ harden_strict_ops: false
 harden_enable_node_exporter: true
 harden_enable_health_watchdog: true
 harden_enable_monit: true
+# Deploy agents need tokens/secrets — leave off until configured
+harden_enable_gha_runner: false
+harden_enable_webhook_deploy: false

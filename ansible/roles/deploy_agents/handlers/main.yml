@@ -1,0 +1,26 @@
+---
+- name: Reload systemd daemon
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: Reload systemd and restart gha runner
+  ansible.builtin.systemd:
+    name: actions.runner.nowo
+    state: restarted
+    daemon_reload: true
+
+- name: Restart webhook deploy
+  ansible.builtin.systemd:
+    name: nowo-webhook-deploy
+    state: restarted
+    daemon_reload: true
+
+- name: Reload ufw
+  ansible.builtin.shell: |
+    set -euo pipefail
+    if ufw status 2>/dev/null | head -n1 | grep -qi 'Status: active'; then
+      ufw reload
+    fi
+  args:
+    executable: /bin/bash
+  changed_when: false

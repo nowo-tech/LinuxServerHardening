@@ -1,0 +1,281 @@
+---
+- name: Require webhook deploy settings when enabled
+  when: harden_enable_webhook_deploy | default(false) | bool
+  ansible.builtin.assert:
+    that:
+      - vault_webhook_deploy_secret is defined
+      - vault_webhook_deploy_secret | length > 0
+      - "'CHANGE_ME' not in (vault_webhook_deploy_secret | string)"
+      - harden_webhook_deploy_repo_path is defined
+      - harden_webhook_deploy_repo_path | length > 0
+      - harden_webhook_deploy_branch is defined
+      - harden_webhook_deploy_branch | length > 0
+    fail_msg: >-
+      harden_enable_webhook_deploy=true needs vault_webhook_deploy_secret,
+      harden_webhook_deploy_repo_path, and harden_webhook_deploy_branch.
+
+- name: Install webhook deploy dependencies
+  when: harden_enable_webhook_deploy | default(false) | bool
+  ansible.builtin.apt:
+    name:
+      - git
+      - python3
+      - curl
+    state: present
+
+- name: Ensure deploy repo parent directory exists
+  when: harden_enable_webhook_deploy | default(false) | bool
+  ansible.builtin.file:
+    path: "{{ harden_webhook_deploy_repo_path | dirname }}"
+    state: directory
+    mode: "0755"
+
+- name: Clone app repo when path is empty
+  when: harden_enable_webhook_deploy | default(false) | bool
+  block:
+    - name: Check deploy path
+      ansible.builtin.stat:
+        path: "{{ harden_webhook_deploy_repo_path }}/.git"
+      register: deploy_git
+
+    - name: Require clone URL if repo missing
+      ansible.builtin.assert:
+        that:
+          - harden_webhook_deploy_repo_url is defined
+          - harden_webhook_deploy_repo_url | length > 0
+        fail_msg: >-
+          Repo path has no .git — set harden_webhook_deploy_repo_url to clone once,
+          or pre-provision the checkout.
+      when: not deploy_git.stat.exists
+
+    - name: Clone repository for webhook deploy
+      when: not deploy_git.stat.exists
+      ansible.builtin.git:
+        repo: "{{ harden_webhook_deploy_repo_url }}"
+        dest: "{{ harden_webhook_deploy_repo_path }}"
+        version: "{{ harden_webhook_deploy_branch }}"
+        accept_hostkey: true
+        key_file: "{{ harden_webhook_deploy_ssh_key | default(omit) }}"
+
+- name: Ensure webhook deploy lib directory exists
+  when: harden_enable_webhook_deploy | default(false) | bool
+  ansible.builtin.file:
+    path: /usr/local/lib/nowo-webhook-deploy
+    state: directory
+    mode: "0755"
+
+- name: Install webhook deploy server
+  when: harden_enable_webhook_deploy | default(false) | bool
+  ansible.builtin.copy:
+    dest: /usr/local/lib/nowo-webhook-deploy/server.py
+    mode: "0755"
+    owner: root
+    group: root
+    content: |
+      #!/usr/bin/env python3
+      """GitHub/Gitea push webhook → git reset --hard + optional service restart."""
+      from __future__ import annotations
+
+      import hashlib
+      import hmac
+      import json
+      import os
+      import subprocess
+      import sys
+      from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+      SECRET = os.environ["WEBHOOK_SECRET"].encode()
+      REPO_PATH = os.environ["REPO_PATH"]
+      BRANCH = os.environ.get("REPO_BRANCH", "main")
+      RESTART = os.environ.get("RESTART_SERVICE", "").strip()
+      LISTEN = os.environ.get("LISTEN", "127.0.0.1:9000")
+      PATH = os.environ.get("WEBHOOK_PATH", "/hooks/deploy")
+
+
+      def verify(sig_header: str | None, body: bytes) -> bool:
+          if not sig_header or not sig_header.startswith("sha256="):
+              return False
+          digest = hmac.new(SECRET, body, hashlib.sha256).hexdigest()
+          return hmac.compare_digest(sig_header, "sha256=" + digest)
+
+
+      def deploy() -> None:
+          subprocess.run(
+              ["git", "-C", REPO_PATH, "fetch", "--prune", "origin"],
+              check=True,
+          )
+          subprocess.run(
+              ["git", "-C", REPO_PATH, "reset", "--hard", f"origin/{BRANCH}"],
+              check=True,
+          )
+          if RESTART:
+              subprocess.run(["systemctl", "restart", RESTART], check=True)
+
+
+      class Handler(BaseHTTPRequestHandler):
+          def log_message(self, fmt: str, *args) -> None:
+              sys.stderr.write("%s - %s\n" % (self.address_string(), fmt % args))
+
+          def do_GET(self) -> None:  # noqa: N802
+              if self.path.rstrip("/") == PATH.rstrip("/") + "/healthz":
+                  self.send_response(200)
+                  self.end_headers()
+                  self.wfile.write(b"ok\n")
+                  return
+              self.send_response(404)
+              self.end_headers()
+
+          def do_POST(self) -> None:  # noqa: N802
+              if self.path.split("?", 1)[0].rstrip("/") != PATH.rstrip("/"):
+                  self.send_response(404)
+                  self.end_headers()
+                  return
+              length = int(self.headers.get("Content-Length", "0"))
+              body = self.rfile.read(length)
+              if not verify(self.headers.get("X-Hub-Signature-256"), body):
+                  self.send_response(401)
+                  self.end_headers()
+                  self.wfile.write(b"bad signature\n")
+                  return
+              try:
+                  payload = json.loads(body.decode("utf-8"))
+              except json.JSONDecodeError:
+                  self.send_response(400)
+                  self.end_headers()
+                  return
+              event = self.headers.get("X-GitHub-Event", "")
+              ref = payload.get("ref", "")
+              if event and event != "push":
+                  self.send_response(202)
+                  self.end_headers()
+                  self.wfile.write(b"ignored event\n")
+                  return
+              if ref and ref != f"refs/heads/{BRANCH}":
+                  self.send_response(202)
+                  self.end_headers()
+                  self.wfile.write(b"ignored branch\n")
+                  return
+              try:
+                  deploy()
+              except subprocess.CalledProcessError as exc:
+                  self.send_response(500)
+                  self.end_headers()
+                  self.wfile.write(f"deploy failed: {exc}\n".encode())
+                  return
+              self.send_response(200)
+              self.end_headers()
+              self.wfile.write(b"deployed\n")
+
+
+      def main() -> int:
+          host, port_s = LISTEN.rsplit(":", 1)
+          server = ThreadingHTTPServer((host, int(port_s)), Handler)
+          sys.stderr.write(f"webhook-deploy listening on {LISTEN} path={PATH}\n")
+          server.serve_forever()
+          return 0
+
+
+      if __name__ == "__main__":
+          raise SystemExit(main())
+
+- name: Write webhook deploy environment file
+  when: harden_enable_webhook_deploy | default(false) | bool
+  ansible.builtin.copy:
+    dest: /etc/nowo-webhook-deploy.env
+    mode: "0600"
+    owner: root
+    group: root
+    content: |
+      WEBHOOK_SECRET={{ vault_webhook_deploy_secret }}
+      REPO_PATH={{ harden_webhook_deploy_repo_path }}
+      REPO_BRANCH={{ harden_webhook_deploy_branch }}
+      RESTART_SERVICE={{ harden_webhook_deploy_restart_service | default('') }}
+      LISTEN={{ harden_webhook_deploy_listen | default('127.0.0.1:9000') }}
+      WEBHOOK_PATH={{ harden_webhook_deploy_path | default('/hooks/deploy') }}
+  no_log: true
+  notify: Restart webhook deploy
+
+- name: Install webhook deploy systemd unit
+  when: harden_enable_webhook_deploy | default(false) | bool
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/nowo-webhook-deploy.service
+    mode: "0644"
+    content: |
+      [Unit]
+      Description=Nowo git push webhook deploy
+      After=network-online.target
+      Wants=network-online.target
+
+      [Service]
+      Type=simple
+      EnvironmentFile=/etc/nowo-webhook-deploy.env
+      ExecStart=/usr/bin/python3 /usr/local/lib/nowo-webhook-deploy/server.py
+      Restart=on-failure
+      RestartSec=3
+
+      [Install]
+      WantedBy=multi-user.target
+  notify: Restart webhook deploy
+
+- name: Enable and start webhook deploy
+  when: harden_enable_webhook_deploy | default(false) | bool
+  ansible.builtin.systemd:
+    name: nowo-webhook-deploy
+    state: started
+    enabled: true
+    daemon_reload: true
+
+- name: Allow webhook port in UFW when opted in
+  when:
+    - harden_enable_webhook_deploy | default(false) | bool
+    - harden_webhook_deploy_ufw_allow | default(false) | bool
+  community.general.ufw:
+    rule: allow
+    direction: in
+    port: "{{ (harden_webhook_deploy_listen | default('127.0.0.1:9000')).split(':')[-1] }}"
+    proto: tcp
+    from_ip: "{{ item }}"
+    comment: "webhook deploy"
+  loop: "{{ harden_webhook_deploy_allow_from | default(['any']) }}"
+  notify: Reload ufw
+
+- name: Remove webhook UFW allows when disabled or remote off
+  when: >-
+    (not (harden_enable_webhook_deploy | default(false) | bool))
+    or (not (harden_webhook_deploy_ufw_allow | default(false) | bool))
+  community.general.ufw:
+    rule: allow
+    direction: in
+    port: "{{ (harden_webhook_deploy_listen | default('127.0.0.1:9000')).split(':')[-1] }}"
+    proto: tcp
+    from_ip: "{{ item }}"
+    delete: true
+  loop: "{{ harden_webhook_deploy_allow_from | default(['any']) }}"
+  failed_when: false
+  notify: Reload ufw
+
+- name: Tear down webhook deploy when disabled
+  when: not (harden_enable_webhook_deploy | default(false) | bool)
+  block:
+    - name: Check webhook unit
+      ansible.builtin.stat:
+        path: /etc/systemd/system/nowo-webhook-deploy.service
+      register: wh_unit
+
+    - name: Stop webhook deploy
+      when: wh_unit.stat.exists
+      ansible.builtin.systemd:
+        name: nowo-webhook-deploy
+        state: stopped
+        enabled: false
+      failed_when: false
+
+    - name: Remove webhook unit and files
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/systemd/system/nowo-webhook-deploy.service
+        - /etc/nowo-webhook-deploy.env
+        - /usr/local/lib/nowo-webhook-deploy
+      notify: Reload systemd daemon

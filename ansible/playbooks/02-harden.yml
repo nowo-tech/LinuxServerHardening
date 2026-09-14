@@ -119,5 +119,7 @@
       when: harden_enable_logwatch | bool
     - role: monitoring_stack
       tags: [monitoring, metrics, health, monit, node_exporter, health_watchdog]
+    - role: deploy_agents
+      tags: [deploy, runner, gha_runner, webhook_deploy]
     - role: security_audit
       tags: [lynis]

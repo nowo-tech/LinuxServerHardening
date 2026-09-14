@@ -23,3 +23,5 @@ harden_ssh_use_dns: "no"
 harden_enable_node_exporter: false
 harden_enable_health_watchdog: false
 harden_enable_monit: false
+harden_enable_gha_runner: false
+harden_enable_webhook_deploy: false
