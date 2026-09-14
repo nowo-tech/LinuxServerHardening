@@ -1,5 +1,5 @@
 ---
-# Debian 13 Docker smoke: identity, SSH, staged MFA, UFW/IDS, msmtp, Lynis install.
+# Debian 13 Docker smoke: identity, SSH, MFA enforce, UFW/IDS, SMTP sink, Lynis --quick.
 # Requires: pip install molecule molecule-plugins[docker] ansible-core
 # Run from ansible/: molecule test
 dependency:

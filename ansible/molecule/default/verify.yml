@@ -1,5 +1,5 @@
 ---
-- name: Verify SSH + firewall harden smoke
+- name: Verify harden smoke including mail, MFA enforce, Lynis
   hosts: all
   become: true
   gather_facts: false
@@ -19,7 +19,7 @@
         path: /etc/ssh/sshd_config.d/10-nowo-hardening.conf
       register: sshd_dropin
 
-    - name: Require drop-in and no MFA AuthenticationMethods when MFA off
+    - name: Require drop-in
       ansible.builtin.assert:
         that:
           - sshd_dropin.stat.exists
@@ -29,11 +29,15 @@
         src: /etc/ssh/sshd_config.d/10-nowo-hardening.conf
       register: sshd_conf
 
-    - name: MFA wired but not enforced (nullok staging)
+    - name: MFA must be enforced after seeded enrolment
       ansible.builtin.assert:
         that:
-          - "'AuthenticationMethods' not in (sshd_conf.content | b64decode)"
-          - "'KbdInteractiveAuthentication no' in (sshd_conf.content | b64decode)"
+          - "'AuthenticationMethods publickey,keyboard-interactive' in (sshd_conf.content | b64decode)"
+          - "'KbdInteractiveAuthentication yes' in (sshd_conf.content | b64decode)"
+
+    - name: Validate sshd config
+      ansible.builtin.command: sshd -t
+      changed_when: false
 
     - name: Assert sysctl drop-in exists
       ansible.builtin.stat:
@@ -45,8 +49,8 @@
         that:
           - sysctl_dropin.stat.exists
 
-    - name: Validate sshd config
-      ansible.builtin.command: sshd -t
+    - name: Sysctl includes kptr_restrict
+      ansible.builtin.command: grep -F 'kernel.kptr_restrict = 2' /etc/sysctl.d/60-nowo-hardening.conf
       changed_when: false
 
     - name: UFW must be active after firewall_stack
@@ -90,13 +94,24 @@
         that:
           - f2b_jail.stat.exists
 
-    - name: Sysctl includes kptr_restrict
-      ansible.builtin.command: grep -F 'kernel.kptr_restrict = 2' /etc/sysctl.d/60-nowo-hardening.conf
+    - name: PAM TOTP enforced without nullok
+      ansible.builtin.shell: |
+        set -euo pipefail
+        grep -E 'pam_google_authenticator\.so' /etc/pam.d/sshd | grep -vq nullok
+      args:
+        executable: /bin/bash
       changed_when: false
 
-    - name: PAM TOTP line is staged with nullok
-      ansible.builtin.command: grep -F 'pam_google_authenticator.so nullok' /etc/pam.d/sshd
-      changed_when: false
+    - name: Seeded TOTP secret exists for molecule
+      ansible.builtin.stat:
+        path: /home/molecule/.google_authenticator
+      register: totp_secret
+
+    - name: Require TOTP secret 0400
+      ansible.builtin.assert:
+        that:
+          - totp_secret.stat.exists
+          - totp_secret.stat.mode == '0400'
 
     - name: msmtp config is root-only
       ansible.builtin.stat:
@@ -108,6 +123,10 @@
         that:
           - msmtprc.stat.exists
           - msmtprc.stat.mode == '0600'
+
+    - name: Mail path reached local SMTP sink
+      ansible.builtin.command: grep -F 'LinuxServerHardening mail path' /var/log/nowo-smtp-sink.log
+      changed_when: false
 
     - name: Lynis is installed from Debian (no third-party repo)
       ansible.builtin.command: dpkg -s lynis
@@ -122,3 +141,14 @@
       ansible.builtin.assert:
         that:
           - not cisofy_list.stat.exists
+
+    - name: Lynis report produced by --quick audit
+      ansible.builtin.stat:
+        path: /var/log/lynis-report.dat
+      register: lynis_report
+
+    - name: Require Lynis report file
+      ansible.builtin.assert:
+        that:
+          - lynis_report.stat.exists
+        fail_msg: Expected /var/log/lynis-report.dat after harden_lynis_force_run

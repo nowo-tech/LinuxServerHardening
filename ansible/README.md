@@ -93,7 +93,7 @@ pip install 'molecule' 'molecule-plugins[docker]'
 molecule test
 ```
 
-Default scenario converges **bootstrap → admin → sysctl → passwords → ssh → MFA (wired/`nullok`) → firewall_stack → msmtp → Lynis install** on Debian 13 Docker (privileged). It verifies UFW, Fail2Ban, PAM TOTP staging, msmtp `0600`, and Debian Lynis without a third-party repo. It is still not a substitute for a full `02-harden.yml` run (no live SMTP, no TOTP enrolment, no `lynis audit system`).
+Default scenario converges **bootstrap → admin → sysctl → passwords → ssh → MFA (wired/`nullok`) → firewall → msmtp (local SMTP sink) → Lynis `--quick`**, then a second play **seeds TOTP and enforces MFA**. Verify checks UFW, Fail2Ban, enforced PAM/sshd MFA, msmtp `0600`, sink activity, and `/var/log/lynis-report.dat`. CrowdSec / Docker / AppArmor remain documentation-only by design.
 
 ## Directory map
 

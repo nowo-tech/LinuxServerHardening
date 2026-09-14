@@ -45,6 +45,7 @@
   ansible.builtin.meta: flush_handlers
 
 - name: Send bootstrap test message
+  when: not (harden_skip_mail_test | default(false) | bool)
   ansible.builtin.command: >
     mail -s "[{{ ansible_hostname }}] mail path ok" {{ harden_mail_to }}
   args:
@@ -55,9 +56,19 @@
     (harden_strict_ops | default(true) | bool) and (mail_test.rc | default(1) != 0)
   check_mode: false
 
+- name: Note skipped live mail test
+  when: harden_skip_mail_test | default(false) | bool
+  ansible.builtin.debug:
+    msg: >-
+      harden_skip_mail_test=true — msmtp config rendered but no message sent.
+      Use a reachable SMTP host (or Molecule smtp_sink) to exercise the path.
+
 - name: Surface mail test outcome
   ansible.builtin.debug:
     msg: >-
       Test mail exit code {{ mail_test.rc }}.
       If non-zero, fix SMTP/Vault/UFW outbound before trusting IDS alerts.
-  when: not (harden_strict_ops | default(true) | bool)
+  when:
+    - not (harden_skip_mail_test | default(false) | bool)
+    - not (harden_strict_ops | default(true) | bool)
+    - mail_test is defined

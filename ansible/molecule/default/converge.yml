@@ -1,5 +1,5 @@
 ---
-- name: Converge — identity, SSH, staged MFA, firewall, mail, Lynis
+- name: Converge — identity, staged MFA, firewall, local SMTP, Lynis audit
   hosts: all
   become: true
   gather_facts: true
@@ -27,13 +27,16 @@
     harden_enable_chkrootkit: false
     harden_enable_aide: false
     harden_enable_logwatch: false
-    harden_lynis_force_run: false
+    harden_lynis_force_run: true
     harden_enable_lynis_mail_report: false
     harden_allow_third_party_lynis_repo: false
     harden_mail_to: molecule@example.com
     harden_mail_from: molecule@example.com
-    harden_smtp_host: localhost
-    harden_smtp_port: 25
+    harden_smtp_host: 127.0.0.1
+    harden_smtp_port: 2525
+    harden_smtp_tls: false
+    harden_smtp_auth: false
+    harden_skip_mail_test: false
     vault_admin_password: "MoleculeTestPassw0rd!"
     vault_smtp_password: "MoleculeSmtpPassw0rd!"
     harden_packages:
@@ -55,7 +58,27 @@
       - { port: "80", proto: "tcp", comment: "HTTP" }
       - { port: "443", proto: "tcp", comment: "HTTPS" }
       - { port: "43", proto: "tcp", comment: "WHOIS" }
+      - { port: "2525", proto: "tcp", comment: "Molecule SMTP sink" }
     harden_ufw_allow_in: []
+  pre_tasks:
+    - name: Install SMTP sink helper
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/files/smtp_sink.py"
+        dest: /usr/local/bin/nowo-smtp-sink
+        mode: "0755"
+
+    - name: Start local SMTP sink on 127.0.0.1:2525
+      ansible.builtin.shell: |
+        set -euo pipefail
+        if ! ss -ltn | grep -q ':2525 '; then
+          nohup /usr/bin/python3 /usr/local/bin/nowo-smtp-sink --host 127.0.0.1 --port 2525 \
+            >/var/log/nowo-smtp-sink.log 2>&1 &
+          sleep 1
+        fi
+        ss -ltn | grep -q ':2525 '
+      args:
+        executable: /bin/bash
+      changed_when: false
   roles:
     - role: bootstrap
     - role: admin_user
@@ -66,3 +89,39 @@
     - role: firewall_stack
     - role: outbound_mail
     - role: security_audit
+
+- name: Converge — enforce MFA after seeded TOTP enrolment
+  hosts: all
+  become: true
+  gather_facts: false
+  vars:
+    harden_admin_user: molecule
+    harden_groups:
+      ssh: sshaccess
+      sudo: elevated
+      su: switchroot
+    harden_ssh_port: 2222
+    harden_ssh_use_dns: "no"
+    harden_ssh_max_auth_tries: 3
+    harden_ssh_max_sessions: 3
+    harden_ssh_max_startups: "10:30:60"
+    harden_enable_mfa_role: true
+    harden_ssh_mfa_enable: true
+    harden_ssh_mfa_nullok: false
+  pre_tasks:
+    - name: Seed google-authenticator secret for molecule (non-interactive enrolment)
+      ansible.builtin.copy:
+        dest: /home/molecule/.google_authenticator
+        owner: molecule
+        group: molecule
+        mode: "0400"
+        # Base32 secret "Hello!" — disposable Molecule fixture only
+        content: |
+          JBSWY3DPEHPK3PXP
+          " RATE_LIMIT 3 30
+          " WINDOW_SIZE 17
+          " DISALLOW_REUSE
+          " TOTP_AUTH
+  roles:
+    - role: ssh_hardening
+    - role: ssh_mfa

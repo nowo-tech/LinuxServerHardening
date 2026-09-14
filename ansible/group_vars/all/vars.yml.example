@@ -31,6 +31,11 @@ harden_mail_to: security@example.com
 harden_mail_from: server-alerts@example.com
 harden_smtp_host: smtp.example.com
 harden_smtp_port: 587
+# Set false only for local sinks / lab relays without STARTTLS
+harden_smtp_tls: true
+harden_smtp_auth: true
+# CI/lab: skip the live mail(1) probe after rendering msmtp
+harden_skip_mail_test: false
 
 harden_ntp_pool: pool.ntp.org
 harden_ntp_servers:

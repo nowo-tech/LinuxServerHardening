@@ -1,14 +1,24 @@
 defaults
+{% if harden_smtp_auth | default(true) | bool %}
 auth           on
+{% else %}
+auth           off
+{% endif %}
+{% if harden_smtp_tls | default(true) | bool %}
 tls            on
 tls_trust_file /etc/ssl/certs/ca-certificates.crt
+{% else %}
+tls            off
+{% endif %}
 logfile        /var/log/msmtp.log
 port           {{ harden_smtp_port }}
 
 account        alerts
 host           {{ harden_smtp_host }}
 from           {{ harden_mail_from }}
+{% if harden_smtp_auth | default(true) | bool %}
 user           {{ harden_mail_from }}
 password       {{ vault_smtp_password }}
+{% endif %}
 
 account default : alerts
