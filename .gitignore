@@ -19,6 +19,8 @@ id_ed25519*
 .ansible/
 ansible.log
 ansible/collections/
+**/__pycache__/
+*.py[cod]
 
 # Editor / OS
 .idea/

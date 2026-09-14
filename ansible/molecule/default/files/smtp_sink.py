@@ -10,6 +10,7 @@ import sys
 def handle(conn: socket.socket) -> None:
     conn.sendall(b"220 molecule-sink ESMTP\r\n")
     data_mode = False
+    data_buf: list[str] = []
     buf = b""
     while True:
         chunk = conn.recv(4096)
@@ -23,7 +24,13 @@ def handle(conn: socket.socket) -> None:
             if data_mode:
                 if text == ".":
                     data_mode = False
+                    body = "\n".join(data_buf)
+                    sys.stderr.write(f"DATA received:\n{body}\n")
+                    sys.stderr.flush()
+                    data_buf = []
                     conn.sendall(b"250 OK\r\n")
+                else:
+                    data_buf.append(text)
                 continue
             if upper.startswith("EHLO") or upper.startswith("HELO"):
                 conn.sendall(b"250-molecule-sink\r\n250 OK\r\n")
@@ -32,6 +39,7 @@ def handle(conn: socket.socket) -> None:
             elif upper == "DATA":
                 conn.sendall(b"354 End data with <CR><LF>.<CR><LF>\r\n")
                 data_mode = True
+                data_buf = []
             elif upper in {"QUIT", "RSET"}:
                 conn.sendall(b"221 Bye\r\n" if upper == "QUIT" else b"250 OK\r\n")
                 if upper == "QUIT":
