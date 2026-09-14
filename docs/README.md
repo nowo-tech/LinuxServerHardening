@@ -28,6 +28,8 @@ Read in order for the full learning path.
 7. Operations
    - [Mail alerts](06-operations/mail-alerts.md)
    - [Log digests](06-operations/log-digests.md)
+   - [Monitoring and healthchecks](06-operations/monitoring-and-healthchecks.md)
+   - [CI/CD and deploys](06-operations/cicd-and-deploy.md)
    - [Continuous review](06-operations/continuous-review.md)
 8. Advanced
    - [AppArmor](07-advanced/apparmor.md)
@@ -49,4 +51,6 @@ Diagrams (Mermaid) appear where order matters:
 | MFA staged rollout | [ssh-mfa](02-access-control/ssh-mfa.md) |
 | UFW enable order | [firewall](03-network/firewall.md) |
 | Fail2Ban / PSAD signal path | [intrusion-signals](03-network/intrusion-signals.md) |
+| Monitoring vs host alerts | [monitoring-and-healthchecks](06-operations/monitoring-and-healthchecks.md) |
+| Kit CI vs product CD | [cicd-and-deploy](06-operations/cicd-and-deploy.md) |
 | Docs ↔ automation map | [CONTROL-COVERAGE](CONTROL-COVERAGE.md) |

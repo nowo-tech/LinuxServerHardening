@@ -72,7 +72,7 @@ ansible/
 | [docs/03-network/](docs/03-network/) | Firewall, IDS, Docker caveats, CrowdSec |
 | [docs/04-host-baseline/](docs/04-host-baseline/) | NTP, updates, passwords, kernel knobs |
 | [docs/05-detection/](docs/05-detection/) | auditd, AIDE, malware/rootkit checks |
-| [docs/06-operations/](docs/06-operations/) | Mail, logwatch, day-2 review |
+| [docs/06-operations/](docs/06-operations/) | Mail, digests, monitoring/healthchecks, CI/CD contract, day-2 review |
 | [docs/07-advanced/](docs/07-advanced/) | AppArmor, FIDO2, GRUB, umask, more |
 | [docs/CONTROL-COVERAGE.md](docs/CONTROL-COVERAGE.md) | Documented vs automated map |
 | [ansible/README.md](ansible/README.md) | How to run the playbooks |
@@ -146,7 +146,7 @@ ansible-playbook -i inventories/lab/hosts.yml playbooks/02-harden.yml \
 - Read each role before enabling it on a machine that matters.
 - Automation is a **starting baseline**, not a finished security program.
 - You own verification: open a second session, test login, test firewall, test mail.
-- Production needs backups, monitoring, and an incident plan beyond this kit.
+- Production needs backups, **monitoring/healthchecks**, an **incident plan**, and a **CI/CD contract** that respects hardened SSH/UFW — see [docs/06-operations/monitoring-and-healthchecks.md](docs/06-operations/monitoring-and-healthchecks.md) and [docs/06-operations/cicd-and-deploy.md](docs/06-operations/cicd-and-deploy.md).
 
 ## Contributing
 

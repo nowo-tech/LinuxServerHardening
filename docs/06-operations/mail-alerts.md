@@ -61,4 +61,4 @@ rm -f /etc/msmtprc
 
 ## Next
 
-[log-digests.md](log-digests.md)
+[log-digests.md](log-digests.md) · [monitoring-and-healthchecks.md](monitoring-and-healthchecks.md)

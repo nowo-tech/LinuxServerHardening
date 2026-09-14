@@ -16,6 +16,8 @@ Hardening decays. New packages reopen ports, temporary firewall rules become per
 [ ] unattended-upgrade logs — failures?
 [ ] Rotate or revoke admin SSH keys that left the team
 [ ] Confirm backup restore still works (out of band)
+[ ] External healthcheck still green (see monitoring-and-healthchecks.md)
+[ ] Deploy/CI runner CIDRs still valid in Fail2Ban ignoreip
 [ ] If Docker is in use, re-check DOCKER-USER vs published ports
 [ ] AIDE/rkhunter/chkrootkit mail — unexplained changes?
 ```
@@ -58,4 +60,4 @@ Not applicable — this chapter is operational habit. If a playbook run causes p
 
 ## Next
 
-Return to [../../ansible/README.md](../../ansible/README.md) and automate what you just practiced.
+[monitoring-and-healthchecks.md](monitoring-and-healthchecks.md) · [cicd-and-deploy.md](cicd-and-deploy.md) · [../../ansible/README.md](../../ansible/README.md)

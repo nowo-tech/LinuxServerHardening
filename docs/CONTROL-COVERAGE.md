@@ -64,6 +64,8 @@ flowchart TB
 | AIDE integrity | D | F | `aide.db.new` → `aide.db` |
 | auditd identity watches | D | A | Focused rules |
 | logwatch digests | D | A | |
+| Monitoring / uptime healthchecks | D | — | External probes + local patterns; not automated |
+| CI/CD deploy contract | D | — | Runner ignoreip, hardened SSH, health gates |
 | Lynis via `03-audit.yml` | D | A | Debian packages by default |
 | Third-party Lynis APT repo | D | F | Supply-chain opt-in |
 | hidepid / umask / lock root / GRUB | D | — | Advanced optional |
@@ -86,6 +88,7 @@ flowchart TB
 
 - Focused auditd rules are not a full enterprise syscall pack.
 - CrowdSec, Docker+UFW, and AppArmor remain **documented only** (operator design; not automated).
+- Monitoring stacks and product CI/CD are **documented contracts** only — this kit’s GitHub Actions lint/Molecule; your uptime probes and deploy pipelines stay yours.
 - Molecule exercises a **local SMTP sink**, **seeded TOTP → MFA enforce**, and **`lynis audit system --quick`** — not a production SMTP provider or interactive phone enrolment.
 - Physical/console threats remain operator-owned.
 - Application security is out of scope.
