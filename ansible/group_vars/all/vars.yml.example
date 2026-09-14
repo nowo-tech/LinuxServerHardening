@@ -81,8 +81,8 @@ harden_enable_node_exporter: false
 harden_node_exporter_listen: "127.0.0.1:9100"
 # Remote scrape is opt-in; prefer SSH tunnel / VPN
 harden_node_exporter_ufw_allow: false
-harden_node_exporter_allow_from:
-  - any
+# Set scraper CIDRs when harden_node_exporter_ufw_allow=true
+harden_node_exporter_allow_from: []
 
 harden_enable_health_watchdog: false
 harden_health_disk_threshold_pct: 90
@@ -101,7 +101,8 @@ harden_monit_cpu_pct: 95
 harden_enable_gha_runner: false
 harden_gha_runner_version: "2.337.0"
 harden_gha_runner_arch: x64
-# Optional: harden_gha_runner_checksum: "sha256:..."
+# Required when enable=true (linux-x64 2.337.0 from GitHub release asset digest)
+harden_gha_runner_checksum: "sha256:70920811a4f8ad4328818682bca5c6469c1c942fab52448868071d0063816613"
 harden_gha_runner_url: "REPLACE_ME_https://github.com/ORG/REPO"
 harden_gha_runner_name: ""
 harden_gha_runner_labels: "self-hosted,linux,debian"
@@ -111,17 +112,21 @@ harden_gha_runner_purge_home: true
 harden_gha_runner_purge_user: false
 
 harden_enable_webhook_deploy: false
+harden_webhook_deploy_user: webhook-deploy
 harden_webhook_deploy_listen: "127.0.0.1:9000"
 harden_webhook_deploy_path: /hooks/deploy
 harden_webhook_deploy_repo_path: /var/www/app
 harden_webhook_deploy_repo_url: ""
 harden_webhook_deploy_branch: main
 harden_webhook_deploy_restart_service: ""
+harden_webhook_deploy_max_body_bytes: 1048576
+harden_webhook_deploy_accept_hostkey: false
 harden_webhook_deploy_ufw_allow: false
-harden_webhook_deploy_allow_from:
-  - any
+# Set real CIDRs when harden_webhook_deploy_ufw_allow=true (empty = no allow rules)
+harden_webhook_deploy_allow_from: []
+harden_webhook_deploy_purge_user: false
 # Optional deploy key path on the host for private repos
-# harden_webhook_deploy_ssh_key: /root/.ssh/deploy_ed25519
+# harden_webhook_deploy_ssh_key: /var/lib/webhook-deploy/.ssh/deploy_ed25519
 # Lynis on every harden run is slow; 03-audit.yml forces a run
 harden_lynis_force_run: false
 # Third-party Lynis APT repo is OFF by default (supply-chain gate)

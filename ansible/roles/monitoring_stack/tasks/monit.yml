@@ -25,9 +25,8 @@
         if space usage > {{ harden_health_disk_threshold_pct | default(90) | int }}% then alert
 
       check process sshd with matching "sshd"
-        start program = "/bin/systemctl start ssh"
-        stop program  = "/bin/systemctl stop ssh"
         if failed port {{ harden_ssh_port | default(22) }} type tcp protocol ssh then alert
+        # Alert only — no start/stop programs (avoids Monit locking out SSH)
 
       {% if harden_enable_node_exporter | default(false) | bool %}
       check process node_exporter with matching "prometheus-node-exporter"
@@ -37,22 +36,15 @@
       {% endif %}
   notify: Reload monit
 
-- name: Configure Monit SMTP alerts
+- name: Configure Monit alerts via local msmtp (no SMTP password on disk)
   when: harden_enable_monit | default(false) | bool
   ansible.builtin.copy:
     dest: /etc/monit/conf.d/nowo-mail
-    mode: "0600"
+    mode: "0644"
     content: |
-      set mailserver {{ harden_smtp_host }} port {{ harden_smtp_port }}
-      {%- if harden_smtp_auth | default(true) | bool %}
-        username "{{ harden_mail_from }}" password "{{ vault_smtp_password }}"
-      {%- endif %}
-      {%- if harden_smtp_tls | default(true) | bool %}
-        using tlsv12
-      {%- endif %}
-        with timeout 15 seconds
+      # Route through local MTA (msmtp-mta) — credentials stay in /etc/msmtprc only
+      set mailserver localhost
       set alert {{ harden_mail_to }}
-  no_log: true
   notify: Reload monit
 
 - name: Ensure Monit is started and enabled

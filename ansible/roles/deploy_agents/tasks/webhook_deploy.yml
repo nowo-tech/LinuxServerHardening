@@ -21,6 +21,17 @@
       - git
       - python3
       - curl
+      - sudo
+    state: present
+
+- name: Create webhook deploy system user
+  when: harden_enable_webhook_deploy | default(false) | bool
+  ansible.builtin.user:
+    name: "{{ harden_webhook_deploy_user | default('webhook-deploy') }}"
+    system: true
+    create_home: true
+    home: /var/lib/webhook-deploy
+    shell: /usr/sbin/nologin
     state: present
 
 - name: Ensure deploy repo parent directory exists
@@ -54,26 +65,37 @@
         repo: "{{ harden_webhook_deploy_repo_url }}"
         dest: "{{ harden_webhook_deploy_repo_path }}"
         version: "{{ harden_webhook_deploy_branch }}"
-        accept_hostkey: true
+        accept_hostkey: "{{ harden_webhook_deploy_accept_hostkey | default(false) | bool }}"
         key_file: "{{ harden_webhook_deploy_ssh_key | default(omit) }}"
+
+- name: Ensure deploy repo owned by webhook user
+  when: harden_enable_webhook_deploy | default(false) | bool
+  ansible.builtin.file:
+    path: "{{ harden_webhook_deploy_repo_path }}"
+    state: directory
+    owner: "{{ harden_webhook_deploy_user | default('webhook-deploy') }}"
+    group: "{{ harden_webhook_deploy_user | default('webhook-deploy') }}"
+    recurse: true
 
 - name: Ensure webhook deploy lib directory exists
   when: harden_enable_webhook_deploy | default(false) | bool
   ansible.builtin.file:
     path: /usr/local/lib/nowo-webhook-deploy
     state: directory
-    mode: "0755"
+    owner: root
+    group: "{{ harden_webhook_deploy_user | default('webhook-deploy') }}"
+    mode: "0750"
 
 - name: Install webhook deploy server
   when: harden_enable_webhook_deploy | default(false) | bool
   ansible.builtin.copy:
     dest: /usr/local/lib/nowo-webhook-deploy/server.py
-    mode: "0755"
+    mode: "0750"
     owner: root
-    group: root
+    group: "{{ harden_webhook_deploy_user | default('webhook-deploy') }}"
     content: |
       #!/usr/bin/env python3
-      """GitHub/Gitea push webhook → git reset --hard + optional service restart."""
+      """GitHub/Gitea push webhook → git reset --hard (+ optional sudo restart)."""
       from __future__ import annotations
 
       import hashlib
@@ -90,6 +112,7 @@
       RESTART = os.environ.get("RESTART_SERVICE", "").strip()
       LISTEN = os.environ.get("LISTEN", "127.0.0.1:9000")
       PATH = os.environ.get("WEBHOOK_PATH", "/hooks/deploy")
+      MAX_BODY = int(os.environ.get("MAX_BODY_BYTES", "1048576"))
 
 
       def verify(sig_header: str | None, body: bytes) -> bool:
@@ -109,7 +132,10 @@
               check=True,
           )
           if RESTART:
-              subprocess.run(["systemctl", "restart", RESTART], check=True)
+              subprocess.run(
+                  ["sudo", "-n", "/bin/systemctl", "restart", RESTART],
+                  check=True,
+              )
 
 
       class Handler(BaseHTTPRequestHandler):
@@ -130,7 +156,17 @@
                   self.send_response(404)
                   self.end_headers()
                   return
-              length = int(self.headers.get("Content-Length", "0"))
+              try:
+                  length = int(self.headers.get("Content-Length", "0"))
+              except ValueError:
+                  self.send_response(400)
+                  self.end_headers()
+                  return
+              if length < 0 or length > MAX_BODY:
+                  self.send_response(413)
+                  self.end_headers()
+                  self.wfile.write(b"body too large\n")
+                  return
               body = self.rfile.read(length)
               if not verify(self.headers.get("X-Hub-Signature-256"), body):
                   self.send_response(401)
@@ -144,13 +180,14 @@
                   self.end_headers()
                   return
               event = self.headers.get("X-GitHub-Event", "")
-              ref = payload.get("ref", "")
-              if event and event != "push":
+              ref = payload.get("ref") or ""
+              # Require explicit push + branch (empty event/ref rejected)
+              if event != "push":
                   self.send_response(202)
                   self.end_headers()
                   self.wfile.write(b"ignored event\n")
                   return
-              if ref and ref != f"refs/heads/{BRANCH}":
+              if ref != f"refs/heads/{BRANCH}":
                   self.send_response(202)
                   self.end_headers()
                   self.wfile.write(b"ignored branch\n")
@@ -177,14 +214,15 @@
 
       if __name__ == "__main__":
           raise SystemExit(main())
+  notify: Restart webhook deploy
 
 - name: Write webhook deploy environment file
   when: harden_enable_webhook_deploy | default(false) | bool
   ansible.builtin.copy:
     dest: /etc/nowo-webhook-deploy.env
-    mode: "0600"
+    mode: "0640"
     owner: root
-    group: root
+    group: "{{ harden_webhook_deploy_user | default('webhook-deploy') }}"
     content: |
       WEBHOOK_SECRET={{ vault_webhook_deploy_secret }}
       REPO_PATH={{ harden_webhook_deploy_repo_path }}
@@ -192,8 +230,31 @@
       RESTART_SERVICE={{ harden_webhook_deploy_restart_service | default('') }}
       LISTEN={{ harden_webhook_deploy_listen | default('127.0.0.1:9000') }}
       WEBHOOK_PATH={{ harden_webhook_deploy_path | default('/hooks/deploy') }}
+      MAX_BODY_BYTES={{ harden_webhook_deploy_max_body_bytes | default(1048576) | int }}
   no_log: true
   notify: Restart webhook deploy
+
+- name: Allow webhook user to restart one unit only
+  when:
+    - harden_enable_webhook_deploy | default(false) | bool
+    - (harden_webhook_deploy_restart_service | default('') | length) > 0
+  ansible.builtin.copy:
+    dest: /etc/sudoers.d/nowo-webhook-deploy
+    mode: "0440"
+    owner: root
+    group: root
+    content: |
+      # Managed by LinuxServerHardening — single unit restart only
+      {{ harden_webhook_deploy_user | default('webhook-deploy') }} ALL=(root) NOPASSWD: /bin/systemctl restart {{ harden_webhook_deploy_restart_service }}
+    validate: visudo -cf %s
+
+- name: Remove restart sudoers when unused or disabled
+  when: >-
+    (not (harden_enable_webhook_deploy | default(false) | bool))
+    or ((harden_webhook_deploy_restart_service | default('') | length) == 0)
+  ansible.builtin.file:
+    path: /etc/sudoers.d/nowo-webhook-deploy
+    state: absent
 
 - name: Install webhook deploy systemd unit
   when: harden_enable_webhook_deploy | default(false) | bool
@@ -208,10 +269,20 @@
 
       [Service]
       Type=simple
+      User={{ harden_webhook_deploy_user | default('webhook-deploy') }}
+      Group={{ harden_webhook_deploy_user | default('webhook-deploy') }}
       EnvironmentFile=/etc/nowo-webhook-deploy.env
       ExecStart=/usr/bin/python3 /usr/local/lib/nowo-webhook-deploy/server.py
       Restart=on-failure
       RestartSec=3
+      NoNewPrivileges={{ 'false' if (harden_webhook_deploy_restart_service | default('') | length) > 0 else 'true' }}
+      PrivateTmp=true
+      ProtectHome=true
+      ProtectSystem=strict
+      ReadWritePaths={{ harden_webhook_deploy_repo_path }}
+      RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+      CapabilityBoundingSet=
+      LockPersonality=true
 
       [Install]
       WantedBy=multi-user.target
@@ -236,7 +307,7 @@
     proto: tcp
     from_ip: "{{ item }}"
     comment: "webhook deploy"
-  loop: "{{ harden_webhook_deploy_allow_from | default(['any']) }}"
+  loop: "{{ harden_webhook_deploy_allow_from | default([]) }}"
   notify: Reload ufw
 
 - name: Remove webhook UFW allows when disabled or remote off
@@ -278,4 +349,12 @@
         - /etc/systemd/system/nowo-webhook-deploy.service
         - /etc/nowo-webhook-deploy.env
         - /usr/local/lib/nowo-webhook-deploy
+        - /etc/sudoers.d/nowo-webhook-deploy
       notify: Reload systemd daemon
+
+    - name: Remove webhook user when purge requested
+      when: harden_webhook_deploy_purge_user | default(false) | bool
+      ansible.builtin.user:
+        name: "{{ harden_webhook_deploy_user | default('webhook-deploy') }}"
+        state: absent
+        remove: true

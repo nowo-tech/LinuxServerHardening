@@ -1,5 +1,5 @@
 ---
-- name: Require registration token when enabling GHA runner
+- name: Require registration token and tarball checksum when enabling GHA runner
   when: harden_enable_gha_runner | default(false) | bool
   ansible.builtin.assert:
     that:
@@ -9,9 +9,12 @@
       - harden_gha_runner_url is defined
       - harden_gha_runner_url | length > 0
       - "'REPLACE_ME' not in (harden_gha_runner_url | string)"
+      - harden_gha_runner_checksum is defined
+      - harden_gha_runner_checksum | length > 0
+      - harden_gha_runner_checksum is match('^sha256:[0-9a-fA-F]{64}$')
     fail_msg: >-
-      harden_enable_gha_runner=true needs harden_gha_runner_url (repo or org URL)
-      and vault_gha_runner_token (GitHub registration token, not CHANGE_ME_*).
+      harden_enable_gha_runner=true needs harden_gha_runner_url, vault_gha_runner_token,
+      and harden_gha_runner_checksum (sha256:<64 hex>) for supply-chain integrity.
 
 - name: Install GHA runner dependencies
   when: harden_enable_gha_runner | default(false) | bool
@@ -49,7 +52,7 @@
       https://github.com/actions/runner/releases/download/v{{ harden_gha_runner_version }}/actions-runner-linux-{{ harden_gha_runner_arch | default('x64') }}-{{ harden_gha_runner_version }}.tar.gz
     dest: "/tmp/actions-runner-{{ harden_gha_runner_version }}.tar.gz"
     mode: "0644"
-    checksum: "{{ harden_gha_runner_checksum | default(omit) }}"
+    checksum: "{{ harden_gha_runner_checksum }}"
 
 - name: Check whether runner binaries are already extracted
   when: harden_enable_gha_runner | default(false) | bool

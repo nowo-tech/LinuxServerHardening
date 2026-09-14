@@ -35,7 +35,7 @@ ansible-playbook ... --tags node_exporter -e @profiles/prod.yml \
 
 **Health watchdog:** disk % (`harden_health_disk_threshold_pct`), `systemctl --failed`, optional `harden_health_probe_urls`, mails via `harden_mail_to` when `harden_health_watchdog_mail: true`.
 
-**Monit:** system/load/memory/cpu, root filesystem, `sshd` on `harden_ssh_port`, and node_exporter when that flag is on. SMTP uses the same host/auth knobs as msmtp (`harden_smtp_*` + vault password).
+**Monit:** system/load/memory/cpu, root filesystem, `sshd` on `harden_ssh_port` (**alert only** — no start/stop), and node_exporter when that flag is on. Mail goes through **local msmtp** (`set mailserver localhost`) so the SMTP password stays only in `/etc/msmtprc`.
 
 Tags: `monitoring`, `metrics`, `node_exporter`, `health`, `health_watchdog`, `monit`.
 

@@ -214,6 +214,10 @@
       ansible.builtin.command: systemctl is-active nowo-webhook-deploy
       changed_when: false
 
+    - name: Webhook unit runs as non-root user
+      ansible.builtin.command: grep -E '^User=webhook-deploy' /etc/systemd/system/nowo-webhook-deploy.service
+      changed_when: false
+
     - name: Webhook healthz responds
       ansible.builtin.command: curl -fsS --max-time 5 http://127.0.0.1:9000/hooks/deploy/healthz
       register: wh_health

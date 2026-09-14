@@ -67,9 +67,9 @@ flowchart TB
 | Monitoring / uptime healthchecks | D | F | External probes D; on-host stack F via flags |
 | node_exporter | D | F | `harden_enable_node_exporter` (false → purge) |
 | Health watchdog | D | F | `harden_enable_health_watchdog` (false → remove) |
-| Monit | D | F | `harden_enable_monit` (false → purge) |
-| GitHub Actions self-hosted runner | D | F | `harden_enable_gha_runner` (false → stop/unregister/purge) |
-| Webhook push deploy | D | F | `harden_enable_webhook_deploy` (false → remove unit) |
+| Monit | D | F | Alerts via local msmtp; SSH check alert-only |
+| GitHub Actions self-hosted runner | D | F | checksum `sha256:` required; false → purge |
+| Webhook push deploy | D | F | non-root user + sandbox; false → remove unit |
 | CI/CD deploy contract | D | F | Docs + deploy_agents role |
 | Lynis via `03-audit.yml` | D | A | Debian packages by default |
 | Third-party Lynis APT repo | D | F | Supply-chain opt-in |

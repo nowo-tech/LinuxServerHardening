@@ -50,7 +50,7 @@
     proto: tcp
     from_ip: "{{ item }}"
     comment: "node_exporter scrape"
-  loop: "{{ harden_node_exporter_allow_from | default(['any']) }}"
+  loop: "{{ harden_node_exporter_allow_from | default([]) }}"
   notify: Reload ufw
 
 - name: Remove node_exporter UFW allows when disabled or remote scrape off
