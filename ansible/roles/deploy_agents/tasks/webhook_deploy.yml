@@ -279,10 +279,18 @@
       PrivateTmp=true
       ProtectHome=true
       ProtectSystem=strict
+      ProtectKernelTunables=true
+      ProtectKernelModules=true
+      ProtectControlGroups=true
       ReadWritePaths={{ harden_webhook_deploy_repo_path }}
       RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+      RestrictNamespaces=true
+      RestrictSUIDSGID=true
+      MemoryDenyWriteExecute=true
       CapabilityBoundingSet=
       LockPersonality=true
+      SystemCallArchitectures=native
+      UMask=027
 
       [Install]
       WantedBy=multi-user.target

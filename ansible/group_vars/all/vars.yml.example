@@ -86,7 +86,8 @@ harden_node_exporter_allow_from: []
 
 harden_enable_health_watchdog: false
 harden_health_disk_threshold_pct: 90
-harden_health_watchdog_cron: "*/5 * * * *"
+# systemd OnCalendar (replaces the old cron schedule)
+harden_health_watchdog_oncalendar: "*:0/5"
 harden_health_watchdog_mail: true
 harden_health_probe_urls: []
 harden_health_probe_timeout: 10

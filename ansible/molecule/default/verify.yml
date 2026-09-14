@@ -176,21 +176,39 @@
         path: /usr/local/sbin/nowo-health-watchdog
       register: watchdog
 
-    - name: Require watchdog script and cron
+    - name: Health watchdog timer present
+      ansible.builtin.stat:
+        path: /etc/systemd/system/nowo-health-watchdog.timer
+      register: watchdog_timer
+
+    - name: Require watchdog script and timer
       ansible.builtin.assert:
         that:
           - watchdog.stat.exists
           - watchdog.stat.mode == '0755'
+          - watchdog_timer.stat.exists
 
-    - name: Health watchdog cron present
+    - name: Health watchdog timer is active
+      ansible.builtin.command: systemctl is-active nowo-health-watchdog.timer
+      changed_when: false
+
+    - name: Legacy watchdog cron must be absent
       ansible.builtin.stat:
         path: /etc/cron.d/nowo-health-watchdog
       register: watchdog_cron
 
-    - name: Require watchdog cron
+    - name: Require no legacy cron
       ansible.builtin.assert:
         that:
-          - watchdog_cron.stat.exists
+          - not watchdog_cron.stat.exists
+
+    - name: node_exporter systemd hardening drop-in present
+      ansible.builtin.command: grep -F 'ProtectSystem=strict' /etc/systemd/system/prometheus-node-exporter.service.d/nowo-hardening.conf
+      changed_when: false
+
+    - name: Monit systemd hardening drop-in present
+      ansible.builtin.command: grep -F 'ProtectSystem=full' /etc/systemd/system/monit.service.d/nowo-hardening.conf
+      changed_when: false
 
     - name: Monit package present
       ansible.builtin.command: dpkg -s monit
@@ -216,6 +234,14 @@
 
     - name: Webhook unit runs as non-root user
       ansible.builtin.command: grep -E '^User=webhook-deploy' /etc/systemd/system/nowo-webhook-deploy.service
+      changed_when: false
+
+    - name: Webhook unit has ProtectSystem=strict
+      ansible.builtin.command: grep -E '^ProtectSystem=strict' /etc/systemd/system/nowo-webhook-deploy.service
+      changed_when: false
+
+    - name: Webhook unit has MemoryDenyWriteExecute
+      ansible.builtin.command: grep -E '^MemoryDenyWriteExecute=true' /etc/systemd/system/nowo-webhook-deploy.service
       changed_when: false
 
     - name: Webhook healthz responds

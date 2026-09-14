@@ -16,12 +16,45 @@
       ARGS="--web.listen-address={{ harden_node_exporter_listen | default('127.0.0.1:9100') }}"
   notify: Restart prometheus-node-exporter
 
+- name: Install node_exporter systemd hardening drop-in
+  when: harden_enable_node_exporter | default(false) | bool
+  block:
+    - name: Ensure node_exporter override directory
+      ansible.builtin.file:
+        path: /etc/systemd/system/prometheus-node-exporter.service.d
+        state: directory
+        mode: "0755"
+
+    - name: Deploy node_exporter hardening override
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/prometheus-node-exporter.service.d/nowo-hardening.conf
+        mode: "0644"
+        content: |
+          [Service]
+          NoNewPrivileges=true
+          PrivateTmp=true
+          ProtectHome=true
+          ProtectSystem=strict
+          ProtectKernelTunables=true
+          ProtectKernelModules=true
+          ProtectControlGroups=true
+          RestrictSUIDSGID=true
+          LockPersonality=true
+          MemoryDenyWriteExecute=true
+          RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+          CapabilityBoundingSet=
+          SystemCallArchitectures=native
+      notify:
+        - Reload systemd daemon
+        - Restart prometheus-node-exporter
+
 - name: Ensure node_exporter is started and enabled
   when: harden_enable_node_exporter | default(false) | bool
   ansible.builtin.service:
     name: prometheus-node-exporter
     state: started
     enabled: true
+    daemon_reload: true
 
 - name: Stop and disable node_exporter when present but disabled
   when: not (harden_enable_node_exporter | default(false) | bool)
@@ -38,6 +71,12 @@
         state: stopped
         enabled: false
       failed_when: false
+
+    - name: Remove node_exporter hardening drop-in
+      ansible.builtin.file:
+        path: /etc/systemd/system/prometheus-node-exporter.service.d
+        state: absent
+      notify: Reload systemd daemon
 
 - name: Allow remote scrape of node_exporter in UFW when opted in
   when:

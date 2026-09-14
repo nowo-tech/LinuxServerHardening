@@ -11,59 +11,132 @@
       set -euo pipefail
       THRESH={{ harden_health_disk_threshold_pct | default(90) | int }}
       MAILTO="{{ harden_mail_to }}"
-      PROBLEMS=()
+      PROBLEM_COUNT=0
+      BODY_FILE="$(mktemp)"
+      trap 'rm -f "${BODY_FILE}"' EXIT
 
       while read -r pct mp; do
-        pct="${pct%%%}"
+        pct="$(printf '%s' "${pct}" | tr -d '%')"
         if [ "${pct}" -ge "${THRESH}" ] 2>/dev/null; then
-          PROBLEMS+=("disk ${mp} at ${pct}% (>= ${THRESH}%)")
+          printf 'disk %s at %s%% (>= %s%%)\n' "${mp}" "${pct}" "${THRESH}" >> "${BODY_FILE}"
+          PROBLEM_COUNT=$((PROBLEM_COUNT + 1))
         fi
       done < <(df -P -x tmpfs -x devtmpfs -x squashfs | awk 'NR>1 {gsub(/%/,"",$5); print $5, $6}')
 
       FAILED="$(systemctl --failed --no-legend --no-pager 2>/dev/null || true)"
       if [ -n "${FAILED}" ]; then
-        PROBLEMS+=("systemd failed units:"$'\n'"${FAILED}")
+        printf 'systemd failed units:\n%s\n' "${FAILED}" >> "${BODY_FILE}"
+        PROBLEM_COUNT=$((PROBLEM_COUNT + 1))
       fi
 
       {% for url in harden_health_probe_urls | default([]) %}
       if ! curl -fsS --max-time {{ harden_health_probe_timeout | default(10) | int }} "{{ url }}" >/dev/null; then
-        PROBLEMS+=("probe failed: {{ url }}")
+        printf 'probe failed: %s\n' "{{ url }}" >> "${BODY_FILE}"
+        PROBLEM_COUNT=$((PROBLEM_COUNT + 1))
       fi
       {% endfor %}
 
-      if [ "${#PROBLEMS[@]}" -eq 0 ]; then
+      if [ "${PROBLEM_COUNT}" -eq 0 ]; then
         exit 0
       fi
 
-      BODY="$(printf '%s\n' "${PROBLEMS[@]}")"
+      BODY="$(cat "${BODY_FILE}")"
       logger -t nowo-health-watchdog "${BODY}"
       {% if harden_health_watchdog_mail | default(true) | bool %}
       printf '%s\n' "${BODY}" | mail -s "[$(hostname -f)] health watchdog" "${MAILTO}" || true
       {% endif %}
       exit 1
 
-- name: Schedule health watchdog cron
+- name: Install health watchdog systemd service
   when: harden_enable_health_watchdog | default(false) | bool
   ansible.builtin.copy:
-    dest: /etc/cron.d/nowo-health-watchdog
+    dest: /etc/systemd/system/nowo-health-watchdog.service
     mode: "0644"
     owner: root
     group: root
     content: |
-      # Managed by LinuxServerHardening
-      SHELL=/bin/bash
-      PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
-      {{ harden_health_watchdog_cron | default('*/5 * * * *') }} root /usr/local/sbin/nowo-health-watchdog >/dev/null 2>&1
+      [Unit]
+      Description=Nowo health watchdog check
+      After=network-online.target
+
+      [Service]
+      Type=oneshot
+      ExecStart=/usr/local/sbin/nowo-health-watchdog
+      Nice=10
+      # Exit 1 on detected problems is intentional (shows as failed for operators)
+      PrivateTmp=true
+      ProtectHome=true
+      ProtectSystem=strict
+      ProtectKernelTunables=true
+      ProtectKernelModules=true
+      ProtectControlGroups=true
+      NoNewPrivileges=true
+      RestrictSUIDSGID=true
+      LockPersonality=true
+      MemoryDenyWriteExecute=true
+      RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+      CapabilityBoundingSet=
+      SystemCallArchitectures=native
+      RestrictNamespaces=true
+  notify: Reload systemd daemon
+
+- name: Install health watchdog systemd timer
+  when: harden_enable_health_watchdog | default(false) | bool
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/nowo-health-watchdog.timer
+    mode: "0644"
+    owner: root
+    group: root
+    content: |
+      [Unit]
+      Description=Run Nowo health watchdog periodically
+
+      [Timer]
+      OnCalendar={{ harden_health_watchdog_oncalendar | default('*:0/5') }}
+      Persistent=true
+      Unit=nowo-health-watchdog.service
+
+      [Install]
+      WantedBy=timers.target
+  notify: Reload systemd and enable health watchdog timer
+
+- name: Remove legacy health watchdog cron (migrated to systemd timer)
+  when: harden_enable_health_watchdog | default(false) | bool
+  ansible.builtin.file:
+    path: /etc/cron.d/nowo-health-watchdog
+    state: absent
+
+- name: Enable health watchdog timer
+  when: harden_enable_health_watchdog | default(false) | bool
+  ansible.builtin.systemd:
+    name: nowo-health-watchdog.timer
+    state: started
+    enabled: true
+    daemon_reload: true
 
 - name: Remove health watchdog when disabled
   when: not (harden_enable_health_watchdog | default(false) | bool)
   block:
-    - name: Remove health watchdog cron
-      ansible.builtin.file:
-        path: /etc/cron.d/nowo-health-watchdog
-        state: absent
+    - name: Check watchdog timer unit
+      ansible.builtin.stat:
+        path: /etc/systemd/system/nowo-health-watchdog.timer
+      register: wd_timer
 
-    - name: Remove health watchdog script
+    - name: Stop health watchdog timer
+      when: wd_timer.stat.exists
+      ansible.builtin.systemd:
+        name: nowo-health-watchdog.timer
+        state: stopped
+        enabled: false
+      failed_when: false
+
+    - name: Remove health watchdog units and script
       ansible.builtin.file:
-        path: /usr/local/sbin/nowo-health-watchdog
+        path: "{{ item }}"
         state: absent
+      loop:
+        - /etc/systemd/system/nowo-health-watchdog.timer
+        - /etc/systemd/system/nowo-health-watchdog.service
+        - /etc/cron.d/nowo-health-watchdog
+        - /usr/local/sbin/nowo-health-watchdog
+      notify: Reload systemd daemon

@@ -96,9 +96,11 @@ Optional smoke test (Docker required; also runs in CI):
 cd ansible
 pip install 'molecule' 'molecule-plugins[docker]'
 molecule test
+# Optional: Debian 12 image (CI runs both)
+MOLECULE_IMAGE=geerlingguy/docker-debian12-ansible@sha256:b4344c8d4985d92b6bad512dd8f230a08851aa75bc68da1c315a4a296bab6b67 molecule test
 ```
 
-Default scenario also enables **node_exporter + health_watchdog + Monit**, proves **disable uninstalls** them, exercises **webhook deploy** (healthz + bad HMAC → 401 + non-push → 202), then re-enables for verify. GHA runner stays off in CI (needs a real registration token).
+Default scenario also enables **node_exporter + health_watchdog + Monit**, proves **disable uninstalls** them, exercises **webhook deploy** (healthz + bad HMAC → 401 + non-push → 202), then re-enables for verify. GHA runner stays off in CI (needs a real registration token). CI matrix runs the same scenario on **Debian 12 and 13**; ansible-lint/yamllint also cover `molecule/`.
 
 ## Directory map
 

@@ -65,10 +65,10 @@ flowchart TB
 | auditd identity watches | D | A | Focused rules |
 | logwatch digests | D | A | |
 | Monitoring / uptime healthchecks | D | F | External probes D; on-host stack F via flags |
-| node_exporter | D | F | `harden_enable_node_exporter` (false → purge) |
-| Health watchdog | D | F | `harden_enable_health_watchdog` (false → remove) |
-| Monit | D | F | Alerts via local msmtp; SSH check alert-only |
-| GitHub Actions self-hosted runner | D | F | checksum + unregister gate; token via 0600 file |
+| node_exporter | D | F | `harden_enable_node_exporter` (false → purge); systemd drop-in |
+| Health watchdog | D | F | systemd timer + sandboxed oneshot; false → remove |
+| Monit | D | F | Alerts via local msmtp; SSH check alert-only; systemd drop-in |
+| GitHub Actions self-hosted runner | D | F | checksum + unregister gate; token via 0600 file; sandboxed unit |
 | Webhook push deploy | D | F | non-root + sandbox; CIDRs required if UFW exposed |
 | CI/CD deploy contract | D | F | Docs + deploy_agents role |
 | Lynis via `03-audit.yml` | D | A | Debian packages by default |
@@ -97,7 +97,7 @@ flowchart TB
 - Monitoring: **node_exporter / health_watchdog / Monit** are Ansible **opt-in** (`harden_enable_*`); external SaaS uptime and full Prometheus/Grafana stay operator-owned.
 - Deploy agents: **GHA self-hosted runner** and **push webhook deploy** are Ansible **opt-in**; GitHub-hosted runners and full CD platforms stay operator-owned.
 - Product CI/CD beyond these agents remains a **documented contract** — this kit’s GitHub Actions lint/Molecule still only validates the kit itself.
-- Molecule covers SMTP sink, MFA enforce, Lynis `--quick`, monitoring enable↔purge, webhook lifecycle, and **HMAC/event negative tests**. It does **not** register a live GitHub runner or talk to production SMTP.
+- Molecule covers SMTP sink, MFA enforce, Lynis `--quick`, monitoring enable↔purge, webhook lifecycle, and **HMAC/event negative tests** on **Debian 12 and 13** (CI matrix). It does **not** register a live GitHub runner or talk to production SMTP.
 - Disabling webhook removes the agent; the git checkout stays unless `harden_webhook_deploy_purge_repo=true`.
 - `config.sh --token` still briefly exposes the registration token on the runner process argv (upstream limitation); the play stages the token from a 0600 file and shreds it afterward.
 - Physical/console threats remain operator-owned.

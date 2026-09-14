@@ -197,10 +197,16 @@
         path: /usr/local/sbin/nowo-health-watchdog
       register: wd
 
+    - name: Watchdog timer must be absent
+      ansible.builtin.stat:
+        path: /etc/systemd/system/nowo-health-watchdog.timer
+      register: wd_timer
+
     - name: Require watchdog gone
       ansible.builtin.assert:
         that:
           - not wd.stat.exists
+          - not wd_timer.stat.exists
 
     - name: Monit must be removed
       ansible.builtin.command: dpkg -s monit

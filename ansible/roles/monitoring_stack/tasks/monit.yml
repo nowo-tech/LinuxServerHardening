@@ -47,12 +47,42 @@
       set alert {{ harden_mail_to }}
   notify: Reload monit
 
+- name: Install Monit systemd hardening drop-in
+  when: harden_enable_monit | default(false) | bool
+  block:
+    - name: Ensure Monit override directory
+      ansible.builtin.file:
+        path: /etc/systemd/system/monit.service.d
+        state: directory
+        mode: "0755"
+
+    - name: Deploy Monit hardening override
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/monit.service.d/nowo-hardening.conf
+        mode: "0644"
+        content: |
+          [Service]
+          # Keep ProtectSystem=full (not strict): Monit may start/stop sibling units
+          PrivateTmp=true
+          ProtectHome=read-only
+          ProtectSystem=full
+          ProtectKernelTunables=true
+          ProtectKernelModules=true
+          RestrictSUIDSGID=true
+          LockPersonality=true
+          SystemCallArchitectures=native
+          RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+      notify:
+        - Reload systemd daemon
+        - Reload monit
+
 - name: Ensure Monit is started and enabled
   when: harden_enable_monit | default(false) | bool
   ansible.builtin.service:
     name: monit
     state: started
     enabled: true
+    daemon_reload: true
 
 - name: Validate Monit configuration
   when: harden_enable_monit | default(false) | bool
@@ -69,6 +99,7 @@
       loop:
         - /etc/monit/conf.d/nowo-hardening
         - /etc/monit/conf.d/nowo-mail
+        - /etc/systemd/system/monit.service.d
 
     - name: Check whether monit unit exists
       ansible.builtin.stat:
@@ -82,3 +113,7 @@
         state: stopped
         enabled: false
       failed_when: false
+
+    - name: Reload systemd after Monit override removal
+      ansible.builtin.systemd:
+        daemon_reload: true

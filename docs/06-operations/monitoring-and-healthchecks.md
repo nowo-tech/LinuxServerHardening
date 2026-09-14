@@ -13,7 +13,7 @@ The `monitoring_stack` role **always** runs on harden. Each tool is independent:
 | Variable | Default | When `true` | When `false` |
 |----------|---------|-------------|--------------|
 | `harden_enable_node_exporter` | `false` | Install + start `prometheus-node-exporter` | Stop + purge package |
-| `harden_enable_health_watchdog` | `false` | Install cron + `/usr/local/sbin/nowo-health-watchdog` | Remove script + cron |
+| `harden_enable_health_watchdog` | `false` | Install systemd timer + `/usr/local/sbin/nowo-health-watchdog` | Remove script + units |
 | `harden_enable_monit` | `false` | Install + start Monit with baseline checks | Stop + purge + remove drop-ins |
 
 Lab profile turns all three **on**; prod leaves them **off** until you opt in.
@@ -31,11 +31,11 @@ ansible-playbook ... --tags node_exporter -e @profiles/prod.yml \
   -e harden_enable_node_exporter=false
 ```
 
-**node_exporter defaults:** listen `127.0.0.1:9100`. Set `harden_node_exporter_ufw_allow: true` and `harden_node_exporter_allow_from` only if a remote scraper must pull.
+**node_exporter defaults:** listen `127.0.0.1:9100`. Set `harden_node_exporter_ufw_allow: true` and `harden_node_exporter_allow_from` only if a remote scraper must pull. A systemd drop-in adds `ProtectSystem=strict` and related sandbox flags.
 
-**Health watchdog:** disk % (`harden_health_disk_threshold_pct`), `systemctl --failed`, optional `harden_health_probe_urls`, mails via `harden_mail_to` when `harden_health_watchdog_mail: true`.
+**Health watchdog:** systemd timer (`harden_health_watchdog_oncalendar`, default `*:0/5`) runs a oneshot unit with sandboxing. Checks disk % (`harden_health_disk_threshold_pct`), `systemctl --failed`, optional `harden_health_probe_urls`, and mails via `harden_mail_to` when `harden_health_watchdog_mail: true`. Legacy `/etc/cron.d/nowo-health-watchdog` is removed on enable.
 
-**Monit:** system/load/memory/cpu, root filesystem, `sshd` on `harden_ssh_port` (**alert only** — no start/stop), and node_exporter when that flag is on. Mail goes through **local msmtp** (`set mailserver localhost`) so the SMTP password stays only in `/etc/msmtprc`.
+**Monit:** system/load/memory/cpu, root filesystem, `sshd` on `harden_ssh_port` (**alert only** — no start/stop), and node_exporter when that flag is on. Mail goes through **local msmtp** (`set mailserver localhost`) so the SMTP password stays only in `/etc/msmtprc`. A systemd drop-in uses `ProtectSystem=full` (not strict) so Monit can still manage sibling units.
 
 Tags: `monitoring`, `metrics`, `node_exporter`, `health`, `health_watchdog`, `monit`.
 
@@ -86,10 +86,12 @@ systemctl is-active prometheus-node-exporter   # if enabled
 curl -s http://127.0.0.1:9100/metrics | head
 systemctl is-active monit                     # if enabled
 monit status
-ls /usr/local/sbin/nowo-health-watchdog       # if enabled
+systemctl is-active nowo-health-watchdog.timer  # if enabled
+systemctl list-timers nowo-health-watchdog.timer
 # After setting flags to false and re-running --tags monitoring:
 dpkg -s prometheus-node-exporter monit        # should be absent
 test ! -e /usr/local/sbin/nowo-health-watchdog
+test ! -e /etc/systemd/system/nowo-health-watchdog.timer
 ```
 
 ## Rollback

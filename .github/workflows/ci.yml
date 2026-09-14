@@ -38,8 +38,8 @@ jobs:
           # Satisfy profile assert for syntax-check (runtime still needs -e @profiles/…)
           printf '\nharden_profile: lab\n' >> group_vars/all/vars.yml
 
-      - name: Yamllint playbooks and roles
-        run: yamllint -d "{extends: relaxed, rules: {line-length: {max: 160}}}" playbooks roles group_vars inventories profiles
+      - name: Yamllint playbooks, roles, and Molecule
+        run: yamllint -d "{extends: relaxed, rules: {line-length: {max: 160}}}" playbooks roles group_vars inventories profiles molecule
 
       - name: Syntax-check playbooks
         run: |
@@ -47,12 +47,20 @@ jobs:
           ansible-playbook --syntax-check playbooks/02-harden.yml
           ansible-playbook --syntax-check playbooks/03-audit.yml
 
-      - name: Ansible-lint
-        run: ansible-lint -c .ansible-lint --nocolor playbooks roles
+      - name: Ansible-lint (playbooks, roles, Molecule)
+        run: ansible-lint -c .ansible-lint --nocolor playbooks roles molecule
 
   molecule:
-    name: Molecule smoke (Docker)
+    name: Molecule (${{ matrix.distro }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - distro: debian13
+            image: geerlingguy/docker-debian13-ansible@sha256:66663f77a975012e9da0ff3896d402a412db97c1db20b1cf703f3a6dd169ccf1
+          - distro: debian12
+            image: geerlingguy/docker-debian12-ansible@sha256:b4344c8d4985d92b6bad512dd8f230a08851aa75bc68da1c315a4a296bab6b67
     defaults:
       run:
         working-directory: ansible
@@ -73,4 +81,6 @@ jobs:
         run: ansible-galaxy collection install -r requirements.yml -p ./collections
 
       - name: Molecule test
+        env:
+          MOLECULE_IMAGE: ${{ matrix.image }}
         run: molecule test

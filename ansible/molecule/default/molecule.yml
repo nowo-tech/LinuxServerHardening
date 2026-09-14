@@ -1,7 +1,8 @@
 ---
-# Debian 13 Docker smoke: identity, SSH, MFA enforce, UFW/IDS, SMTP sink, Lynis --quick.
+# Debian Docker smoke (12 + 13 via CI matrix / MOLECULE_IMAGE).
 # Requires: pip install molecule molecule-plugins[docker] ansible-core
 # Run from ansible/: molecule test
+# Override image: MOLECULE_IMAGE=geerlingguy/docker-debian12-ansible@sha256:… molecule test
 dependency:
   name: galaxy
   options:
@@ -9,9 +10,9 @@ dependency:
 driver:
   name: docker
 platforms:
-  - name: debian13-harden
+  - name: harden-target
     # Pin digest for supply-chain stability (bump intentionally when refreshing)
-    image: geerlingguy/docker-debian13-ansible@sha256:66663f77a975012e9da0ff3896d402a412db97c1db20b1cf703f3a6dd169ccf1
+    image: ${MOLECULE_IMAGE:-geerlingguy/docker-debian13-ansible@sha256:66663f77a975012e9da0ff3896d402a412db97c1db20b1cf703f3a6dd169ccf1}
     pre_build_image: true
     command: ""
     volumes:
@@ -24,7 +25,7 @@ provisioner:
     hosts:
       all:
         hosts:
-          debian13-harden:
+          harden-target:
             ansible_user: root
   playbooks:
     converge: converge.yml

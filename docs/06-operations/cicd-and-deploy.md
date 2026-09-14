@@ -38,14 +38,14 @@ ansible-playbook ... --tags gha_runner -e harden_enable_gha_runner=false
 2. Set `harden_gha_runner_url` to the repo or org URL (not `REPLACE_ME_*`).
 3. Pin `harden_gha_runner_version` and set **required** `harden_gha_runner_checksum` (`sha256:…`).
 4. Prefer labels like `self-hosted,linux,debian,prod` and target jobs with `runs-on:`.
-5. Runner listens **outbound** to GitHub — no inbound UFW hole required.
+5. Runner listens **outbound** to GitHub — no inbound UFW hole required. The systemd unit includes a **conservative sandbox** (`ProtectSystem=full`, `NoNewPrivileges`); relax it if jobs need Docker/privileged helpers.
 6. On disable, unregister is **required** by default (`harden_gha_runner_require_unregister`); the token is staged to a 0600 file then shredded (upstream `config.sh` still needs `--token` on argv briefly).
 
 #### Webhook auto-deploy (push → update code)
 
 1. Put a HMAC secret in `vault_webhook_deploy_secret`.
 2. Point `harden_webhook_deploy_repo_path` at an existing clone, **or** set `harden_webhook_deploy_repo_url` to clone once (SSH host key verification on by default).
-3. Runs as system user `webhook-deploy` (not root) with systemd `ProtectSystem=strict` and `ReadWritePaths` limited to the repo. Optional restart uses a **single-unit** sudoers rule.
+3. Runs as system user `webhook-deploy` (not root) with systemd `ProtectSystem=strict`, `MemoryDenyWriteExecute`, and `ReadWritePaths` limited to the repo. Optional restart uses a **single-unit** sudoers rule.
 4. Default listen `127.0.0.1:9000` — put nginx/Caddy with TLS in front, or set `harden_webhook_deploy_ufw_allow: true` with explicit CIDRs in `harden_webhook_deploy_allow_from`.
 5. In GitHub → Webhooks: URL `https://host/hooks/deploy`, content type JSON, secret = vault secret, event **push** only.
 6. Handler **requires** `X-GitHub-Event: push` and `ref: refs/heads/<branch>`; rejects empty event/ref and bodies over `harden_webhook_deploy_max_body_bytes` (default 1 MiB).
@@ -68,7 +68,7 @@ flowchart LR
 
 | Piece | Role |
 |-------|------|
-| GitHub Actions (this kit repo) | Syntax, yamllint, ansible-lint, Molecule — **not** production deploys |
+| GitHub Actions (this kit repo) | Syntax, yamllint, ansible-lint (incl. Molecule), Molecule on Debian 12 **and** 13 — **not** production deploys |
 | `01-bootstrap` / `02-harden` / `03-audit` | Operator-driven from a control node with Vault |
 
 Treat **kit CI** as quality gates for the playbooks. Treat **your app CD** as runners/webhooks above (or SSH from a pipeline).

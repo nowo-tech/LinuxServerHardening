@@ -175,6 +175,19 @@
       KillMode=process
       KillSignal=SIGTERM
       TimeoutStopSec=5min
+      # Conservative sandbox — relax if jobs need Docker/privileged helpers
+      PrivateTmp=true
+      ProtectHome=true
+      ProtectSystem=full
+      ProtectKernelTunables=true
+      ProtectKernelModules=true
+      ProtectControlGroups=true
+      NoNewPrivileges=true
+      RestrictSUIDSGID=true
+      LockPersonality=true
+      SystemCallArchitectures=native
+      RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+      UMask=027
 
       [Install]
       WantedBy=multi-user.target

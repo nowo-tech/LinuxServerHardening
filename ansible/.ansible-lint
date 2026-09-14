@@ -4,7 +4,12 @@ skip_list:
   - yaml[line-length]
   - name[casing]
   - experimental
+  # Kit-wide harden_* vars (not role-prefixed)
+  - var-naming[no-role-prefix]
+  # lineinfile create: on /etc drop-ins; mode set by package defaults
+  - risky-file-permissions
+  # Molecule verify intentionally uses systemctl/curl for exact smoke asserts
+  - command-instead-of-module
 exclude_paths:
   - collections/
   - profiles/
-  - molecule/

@@ -9,6 +9,17 @@
     name: monit
     state: reloaded
 
+- name: Reload systemd daemon
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: Reload systemd and enable health watchdog timer
+  ansible.builtin.systemd:
+    name: nowo-health-watchdog.timer
+    state: started
+    enabled: true
+    daemon_reload: true
+
 - name: Reload ufw
   ansible.builtin.shell: |
     set -euo pipefail
