@@ -39,6 +39,7 @@ ansible-playbook ... --tags gha_runner -e harden_enable_gha_runner=false
 3. Pin `harden_gha_runner_version` and set **required** `harden_gha_runner_checksum` (`sha256:…`).
 4. Prefer labels like `self-hosted,linux,debian,prod` and target jobs with `runs-on:`.
 5. Runner listens **outbound** to GitHub — no inbound UFW hole required.
+6. On disable, unregister is **required** by default (`harden_gha_runner_require_unregister`); the token is staged to a 0600 file then shredded (upstream `config.sh` still needs `--token` on argv briefly).
 
 #### Webhook auto-deploy (push → update code)
 
@@ -49,6 +50,7 @@ ansible-playbook ... --tags gha_runner -e harden_enable_gha_runner=false
 5. In GitHub → Webhooks: URL `https://host/hooks/deploy`, content type JSON, secret = vault secret, event **push** only.
 6. Handler **requires** `X-GitHub-Event: push` and `ref: refs/heads/<branch>`; rejects empty event/ref and bodies over `harden_webhook_deploy_max_body_bytes` (default 1 MiB).
 7. Optional `harden_webhook_deploy_restart_service` restarts that systemd unit after `git reset --hard origin/<branch>`.
+8. Disabling the agent removes the service; set `harden_webhook_deploy_purge_repo=true` if you also want the checkout deleted.
 
 Health: `GET /hooks/deploy/healthz` → `ok`.
 

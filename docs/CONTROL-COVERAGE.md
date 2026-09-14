@@ -48,7 +48,7 @@ flowchart TB
 | Fail2Ban ignoreip required | D | A | Default on; lab profile relaxes |
 | Lab / prod profiles | D | A | `harden_profile` asserted on harden |
 | Refuse root harden inventory | D | A | Override: `harden_allow_root_harden` |
-| Refuse vault `CHANGE_ME_*` | D | A | Asserted on harden |
+| Refuse vault `CHANGE_ME_*` (core) | D | A | admin + SMTP on harden; GHA/webhook when enabled |
 | MFA coupling (role + nullok) | D | A | Asserted before sshd MFA enforce |
 | Strict ops (mail/psad/lynis) | D | A | `harden_strict_ops` default on; lab off |
 | PSAD (detect / alert) | D | A | LOG on `ufw-after-*` (non-accepted only) |
@@ -68,8 +68,8 @@ flowchart TB
 | node_exporter | D | F | `harden_enable_node_exporter` (false → purge) |
 | Health watchdog | D | F | `harden_enable_health_watchdog` (false → remove) |
 | Monit | D | F | Alerts via local msmtp; SSH check alert-only |
-| GitHub Actions self-hosted runner | D | F | checksum `sha256:` required; false → purge |
-| Webhook push deploy | D | F | non-root user + sandbox; false → remove unit |
+| GitHub Actions self-hosted runner | D | F | checksum + unregister gate; token via 0600 file |
+| Webhook push deploy | D | F | non-root + sandbox; CIDRs required if UFW exposed |
 | CI/CD deploy contract | D | F | Docs + deploy_agents role |
 | Lynis via `03-audit.yml` | D | A | Debian packages by default |
 | Third-party Lynis APT repo | D | F | Supply-chain opt-in |
@@ -97,6 +97,8 @@ flowchart TB
 - Monitoring: **node_exporter / health_watchdog / Monit** are Ansible **opt-in** (`harden_enable_*`); external SaaS uptime and full Prometheus/Grafana stay operator-owned.
 - Deploy agents: **GHA self-hosted runner** and **push webhook deploy** are Ansible **opt-in**; GitHub-hosted runners and full CD platforms stay operator-owned.
 - Product CI/CD beyond these agents remains a **documented contract** — this kit’s GitHub Actions lint/Molecule still only validates the kit itself.
-- Molecule exercises a **local SMTP sink**, **seeded TOTP → MFA enforce**, and **`lynis audit system --quick`** — not a production SMTP provider or interactive phone enrolment.
+- Molecule covers SMTP sink, MFA enforce, Lynis `--quick`, monitoring enable↔purge, webhook lifecycle, and **HMAC/event negative tests**. It does **not** register a live GitHub runner or talk to production SMTP.
+- Disabling webhook removes the agent; the git checkout stays unless `harden_webhook_deploy_purge_repo=true`.
+- `config.sh --token` still briefly exposes the registration token on the runner process argv (upstream limitation); the play stages the token from a 0600 file and shreds it afterward.
 - Physical/console threats remain operator-owned.
 - Application security is out of scope.

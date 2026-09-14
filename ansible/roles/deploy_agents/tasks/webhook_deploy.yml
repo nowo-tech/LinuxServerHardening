@@ -300,15 +300,27 @@
   when:
     - harden_enable_webhook_deploy | default(false) | bool
     - harden_webhook_deploy_ufw_allow | default(false) | bool
-  community.general.ufw:
-    rule: allow
-    direction: in
-    port: "{{ (harden_webhook_deploy_listen | default('127.0.0.1:9000')).split(':')[-1] }}"
-    proto: tcp
-    from_ip: "{{ item }}"
-    comment: "webhook deploy"
-  loop: "{{ harden_webhook_deploy_allow_from | default([]) }}"
-  notify: Reload ufw
+  block:
+    - name: Require explicit webhook source CIDRs (reject any/empty)
+      ansible.builtin.assert:
+        that:
+          - harden_webhook_deploy_allow_from is defined
+          - harden_webhook_deploy_allow_from | length > 0
+          - "'any' not in (harden_webhook_deploy_allow_from | map('lower') | list)"
+        fail_msg: >-
+          harden_webhook_deploy_ufw_allow=true requires harden_webhook_deploy_allow_from
+          with real CIDRs (not empty and not 'any'). Prefer a reverse proxy.
+
+    - name: Allow webhook deploy sources
+      community.general.ufw:
+        rule: allow
+        direction: in
+        port: "{{ (harden_webhook_deploy_listen | default('127.0.0.1:9000')).split(':')[-1] }}"
+        proto: tcp
+        from_ip: "{{ item }}"
+        comment: "webhook deploy"
+      loop: "{{ harden_webhook_deploy_allow_from }}"
+      notify: Reload ufw
 
 - name: Remove webhook UFW allows when disabled or remote off
   when: >-
@@ -351,6 +363,12 @@
         - /usr/local/lib/nowo-webhook-deploy
         - /etc/sudoers.d/nowo-webhook-deploy
       notify: Reload systemd daemon
+
+    - name: Optionally remove deploy checkout when purge requested
+      when: harden_webhook_deploy_purge_repo | default(false) | bool
+      ansible.builtin.file:
+        path: "{{ harden_webhook_deploy_repo_path }}"
+        state: absent
 
     - name: Remove webhook user when purge requested
       when: harden_webhook_deploy_purge_user | default(false) | bool

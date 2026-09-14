@@ -111,7 +111,7 @@ ansible-playbook -i inventories/lab/hosts.yml playbooks/02-harden.yml \
 #   -e @profiles/prod.yml
 ```
 
-Without `-e @profiles/lab.yml` or `-e @profiles/prod.yml`, harden **fails** (`harden_profile` required). Lab relaxes ignoreip; prod **requires** a real `harden_fail2ban_ignoreip` (no empty / TEST-NET / `REPLACE_ME_*` values). Vault must not contain `CHANGE_ME_*` placeholders.
+Without `-e @profiles/lab.yml` or `-e @profiles/prod.yml`, harden **fails** (`harden_profile` required). Lab relaxes ignoreip; prod **requires** a real `harden_fail2ban_ignoreip` (no empty / TEST-NET / `REPLACE_ME_*` values). Vault must not contain `CHANGE_ME_*` for **admin/SMTP** (always); GHA/webhook secrets are checked only when those features are enabled.
 
 Re-runs (runtime inventory already sets `ansible_port`):
 

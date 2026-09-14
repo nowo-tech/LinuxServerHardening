@@ -110,6 +110,8 @@ harden_gha_runner_user: gha-runner
 harden_gha_runner_home: /opt/actions-runner
 harden_gha_runner_purge_home: true
 harden_gha_runner_purge_user: false
+# When disabling: require successful GitHub unregister before local purge
+harden_gha_runner_require_unregister: true
 
 harden_enable_webhook_deploy: false
 harden_webhook_deploy_user: webhook-deploy
@@ -122,9 +124,11 @@ harden_webhook_deploy_restart_service: ""
 harden_webhook_deploy_max_body_bytes: 1048576
 harden_webhook_deploy_accept_hostkey: false
 harden_webhook_deploy_ufw_allow: false
-# Set real CIDRs when harden_webhook_deploy_ufw_allow=true (empty = no allow rules)
+# Set real CIDRs when harden_webhook_deploy_ufw_allow=true (empty/'any' rejected)
 harden_webhook_deploy_allow_from: []
 harden_webhook_deploy_purge_user: false
+# false leaves the git checkout when the webhook agent is disabled
+harden_webhook_deploy_purge_repo: false
 # Optional deploy key path on the host for private repos
 # harden_webhook_deploy_ssh_key: /var/lib/webhook-deploy/.ssh/deploy_ed25519
 # Lynis on every harden run is slow; 03-audit.yml forces a run

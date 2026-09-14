@@ -67,6 +67,7 @@
       - msmtp
       - msmtp-mta
       - openssh-server
+      - openssl
       - psad
       - rsyslog
       - ufw

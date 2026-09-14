@@ -98,7 +98,7 @@ pip install 'molecule' 'molecule-plugins[docker]'
 molecule test
 ```
 
-Default scenario also enables **node_exporter + health_watchdog + Monit**, proves **disable uninstalls** them, then re-enables for verify (metrics endpoint, cron script, monit active).
+Default scenario also enables **node_exporter + health_watchdog + Monit**, proves **disable uninstalls** them, exercises **webhook deploy** (healthz + bad HMAC → 401 + non-push → 202), then re-enables for verify. GHA runner stays off in CI (needs a real registration token).
 
 ## Directory map
 
@@ -108,7 +108,7 @@ roles/
   ssh_hardening/ ssh_mfa/ password_policy/ auto_updates/
   firewall_stack/ outbound_mail/
   malware_scan/ integrity_checks/ rootkit_extra/ file_integrity/
-  malware_framework/ log_digest/ monitoring_stack/ deploy_agents/ security_audit/
+  audit_framework/ log_digest/ monitoring_stack/ deploy_agents/ security_audit/
 profiles/
   lab.yml   prod.yml
 inventories/

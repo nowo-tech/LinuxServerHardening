@@ -43,15 +43,27 @@
   when:
     - harden_enable_node_exporter | default(false) | bool
     - harden_node_exporter_ufw_allow | default(false) | bool
-  community.general.ufw:
-    rule: allow
-    direction: in
-    port: "{{ harden_node_exporter_listen.split(':')[-1] | default('9100') }}"
-    proto: tcp
-    from_ip: "{{ item }}"
-    comment: "node_exporter scrape"
-  loop: "{{ harden_node_exporter_allow_from | default([]) }}"
-  notify: Reload ufw
+  block:
+    - name: Require explicit scraper CIDRs (reject any/empty)
+      ansible.builtin.assert:
+        that:
+          - harden_node_exporter_allow_from is defined
+          - harden_node_exporter_allow_from | length > 0
+          - "'any' not in (harden_node_exporter_allow_from | map('lower') | list)"
+        fail_msg: >-
+          harden_node_exporter_ufw_allow=true requires harden_node_exporter_allow_from
+          with real CIDRs (not empty and not 'any').
+
+    - name: Allow node_exporter scrape sources
+      community.general.ufw:
+        rule: allow
+        direction: in
+        port: "{{ harden_node_exporter_listen.split(':')[-1] | default('9100') }}"
+        proto: tcp
+        from_ip: "{{ item }}"
+        comment: "node_exporter scrape"
+      loop: "{{ harden_node_exporter_allow_from }}"
+      notify: Reload ufw
 
 - name: Remove node_exporter UFW allows when disabled or remote scrape off
   when: >-

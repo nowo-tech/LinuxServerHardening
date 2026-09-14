@@ -88,7 +88,7 @@
     chdir: "{{ harden_gha_runner_home | default('/opt/actions-runner') }}"
   register: gha_deps
   changed_when: false
-  failed_when: false
+  failed_when: gha_deps.rc | default(1) != 0
 
 - name: Write runner version stamp
   when: harden_enable_gha_runner | default(false) | bool
@@ -99,31 +99,60 @@
     group: "{{ harden_gha_runner_user | default('gha-runner') }}"
     mode: "0640"
 
+- name: Remove temporary runner tarball
+  when: harden_enable_gha_runner | default(false) | bool
+  ansible.builtin.file:
+    path: "/tmp/actions-runner-{{ harden_gha_runner_version }}.tar.gz"
+    state: absent
+
 - name: Check whether runner is already configured
   when: harden_enable_gha_runner | default(false) | bool
   ansible.builtin.stat:
     path: "{{ harden_gha_runner_home | default('/opt/actions-runner') }}/.runner"
   register: gha_configured
 
-- name: Register GitHub Actions runner (once)
+- name: Stage registration token to a root-only file (avoid Vault echo in argv from Ansible)
   when:
     - harden_enable_gha_runner | default(false) | bool
     - not gha_configured.stat.exists
-  ansible.builtin.command: >
-    ./config.sh --unattended
-    --url {{ harden_gha_runner_url | quote }}
-    --token {{ vault_gha_runner_token | quote }}
-    --name {{ ((harden_gha_runner_name | default('')) | length > 0) | ternary(harden_gha_runner_name, inventory_hostname) | quote }}
-    --labels {{ harden_gha_runner_labels | default('self-hosted,linux,debian') | quote }}
-    --work _work
-    --replace
+  ansible.builtin.copy:
+    dest: "{{ harden_gha_runner_home | default('/opt/actions-runner') }}/.nowo-reg-token"
+    content: "{{ vault_gha_runner_token }}"
+    owner: "{{ harden_gha_runner_user | default('gha-runner') }}"
+    group: "{{ harden_gha_runner_user | default('gha-runner') }}"
+    mode: "0600"
+  no_log: true
+
+- name: Register GitHub Actions runner (once; token read from file)
+  when:
+    - harden_enable_gha_runner | default(false) | bool
+    - not gha_configured.stat.exists
+  ansible.builtin.shell: |
+    set -euo pipefail
+    TOKEN="$(cat .nowo-reg-token)"
+    ./config.sh --unattended \
+      --url {{ harden_gha_runner_url | quote }} \
+      --token "${TOKEN}" \
+      --name {{ ((harden_gha_runner_name | default('')) | length > 0) | ternary(harden_gha_runner_name, inventory_hostname) | quote }} \
+      --labels {{ harden_gha_runner_labels | default('self-hosted,linux,debian') | quote }} \
+      --work _work \
+      --replace
   args:
     chdir: "{{ harden_gha_runner_home | default('/opt/actions-runner') }}"
+    executable: /bin/bash
   become: true
   become_user: "{{ harden_gha_runner_user | default('gha-runner') }}"
   no_log: true
   register: gha_register
   changed_when: gha_register.rc == 0
+
+- name: Shred registration token file after register attempt
+  when:
+    - harden_enable_gha_runner | default(false) | bool
+  ansible.builtin.file:
+    path: "{{ harden_gha_runner_home | default('/opt/actions-runner') }}/.nowo-reg-token"
+    state: absent
+  no_log: true
 
 - name: Install systemd unit for GHA runner
   when: harden_enable_gha_runner | default(false) | bool
@@ -180,21 +209,62 @@
         path: "{{ harden_gha_runner_home | default('/opt/actions-runner') }}/.runner"
       register: gha_cfg_rm
 
-    - name: Unregister runner when removal token provided
+    - name: Require a removal token when unregister is mandatory
+      when:
+        - gha_cfg_rm.stat.exists
+        - harden_gha_runner_require_unregister | default(true) | bool
+      ansible.builtin.assert:
+        that:
+          - vault_gha_runner_token is defined
+          - vault_gha_runner_token | length > 0
+          - "'CHANGE_ME' not in (vault_gha_runner_token | string)"
+        fail_msg: >-
+          Runner still registered (.runner present). Set a valid vault_gha_runner_token
+          to unregister, or set harden_gha_runner_require_unregister=false to purge locally
+          and leave an orphaned runner in GitHub.
+
+    - name: Stage removal token file
       when:
         - gha_cfg_rm.stat.exists
         - vault_gha_runner_token is defined
         - vault_gha_runner_token | length > 0
         - "'CHANGE_ME' not in (vault_gha_runner_token | string)"
-      ansible.builtin.command: >
-        ./config.sh remove --token {{ vault_gha_runner_token | quote }}
+      ansible.builtin.copy:
+        dest: "{{ harden_gha_runner_home | default('/opt/actions-runner') }}/.nowo-reg-token"
+        content: "{{ vault_gha_runner_token }}"
+        owner: "{{ harden_gha_runner_user | default('gha-runner') }}"
+        group: "{{ harden_gha_runner_user | default('gha-runner') }}"
+        mode: "0600"
+      no_log: true
+
+    - name: Unregister runner from GitHub
+      when:
+        - gha_cfg_rm.stat.exists
+        - vault_gha_runner_token is defined
+        - vault_gha_runner_token | length > 0
+        - "'CHANGE_ME' not in (vault_gha_runner_token | string)"
+      ansible.builtin.shell: |
+        set -euo pipefail
+        TOKEN="$(cat .nowo-reg-token)"
+        ./config.sh remove --token "${TOKEN}"
       args:
         chdir: "{{ harden_gha_runner_home | default('/opt/actions-runner') }}"
+        executable: /bin/bash
       become: true
       become_user: "{{ harden_gha_runner_user | default('gha-runner') }}"
       no_log: true
+      register: gha_unregister
+      failed_when: >-
+        (harden_gha_runner_require_unregister | default(true) | bool)
+        and (gha_unregister.rc | default(1) != 0)
+      changed_when: gha_unregister.rc | default(1) == 0
+
+    - name: Shred removal token file
+      ansible.builtin.file:
+        path: "{{ harden_gha_runner_home | default('/opt/actions-runner') }}/.nowo-reg-token"
+        state: absent
+      no_log: true
       failed_when: false
-      changed_when: true
 
     - name: Remove GHA systemd unit
       ansible.builtin.file:
