@@ -76,10 +76,13 @@ ansible-playbook -i inventories/prod/hosts.yml playbooks/02-harden.yml \
 | `harden_auto_reboot` | `false` | `true` | `false` |
 | `harden_ssh_keys_exclusive` | `false` | — | `true` |
 | `harden_allow_root_harden` | `false` | — | — |
+| `harden_enable_node_exporter` | `false` | `true` | `false` |
+| `harden_enable_health_watchdog` | `false` | `true` | `false` |
+| `harden_enable_monit` | `false` | `true` | `false` |
 
 ## Tags
 
-`packages`, `ntp`, `sysctl`, `ssh`, `mfa`, `passwords`, `updates`, `firewall`, `ids`, `mail`, `malware`, `integrity`, `chkrootkit`, `aide`, `auditd`, `logwatch`, `lynis`.
+`packages`, `ntp`, `sysctl`, `ssh`, `mfa`, `passwords`, `updates`, `firewall`, `ids`, `mail`, `malware`, `integrity`, `chkrootkit`, `aide`, `auditd`, `logwatch`, `monitoring`, `metrics`, `node_exporter`, `health`, `health_watchdog`, `monit`, `lynis`.
 
 ## Check mode / Molecule
 
@@ -93,7 +96,7 @@ pip install 'molecule' 'molecule-plugins[docker]'
 molecule test
 ```
 
-Default scenario converges **bootstrap → admin → sysctl → passwords → ssh → MFA (wired/`nullok`) → firewall → msmtp (local SMTP sink) → Lynis `--quick`**, then a second play **seeds TOTP and enforces MFA**. Verify checks UFW, Fail2Ban, enforced PAM/sshd MFA, msmtp `0600`, sink activity, and `/var/log/lynis-report.dat`. CrowdSec / Docker / AppArmor remain documentation-only by design.
+Default scenario also enables **node_exporter + health_watchdog + Monit**, proves **disable uninstalls** them, then re-enables for verify (metrics endpoint, cron script, monit active).
 
 ## Directory map
 
@@ -103,7 +106,7 @@ roles/
   ssh_hardening/ ssh_mfa/ password_policy/ auto_updates/
   firewall_stack/ outbound_mail/
   malware_scan/ integrity_checks/ rootkit_extra/ file_integrity/
-  audit_framework/ log_digest/ security_audit/
+  audit_framework/ log_digest/ monitoring_stack/ security_audit/
 profiles/
   lab.yml   prod.yml
 inventories/

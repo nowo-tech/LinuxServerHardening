@@ -1,0 +1,69 @@
+---
+- name: Install health watchdog script
+  when: harden_enable_health_watchdog | default(false) | bool
+  ansible.builtin.copy:
+    dest: /usr/local/sbin/nowo-health-watchdog
+    mode: "0755"
+    owner: root
+    group: root
+    content: |
+      #!/bin/bash
+      set -euo pipefail
+      THRESH={{ harden_health_disk_threshold_pct | default(90) | int }}
+      MAILTO="{{ harden_mail_to }}"
+      PROBLEMS=()
+
+      while read -r pct mp; do
+        pct="${pct%%%}"
+        if [ "${pct}" -ge "${THRESH}" ] 2>/dev/null; then
+          PROBLEMS+=("disk ${mp} at ${pct}% (>= ${THRESH}%)")
+        fi
+      done < <(df -P -x tmpfs -x devtmpfs -x squashfs | awk 'NR>1 {gsub(/%/,"",$5); print $5, $6}')
+
+      FAILED="$(systemctl --failed --no-legend --no-pager 2>/dev/null || true)"
+      if [ -n "${FAILED}" ]; then
+        PROBLEMS+=("systemd failed units:"$'\n'"${FAILED}")
+      fi
+
+      {% for url in harden_health_probe_urls | default([]) %}
+      if ! curl -fsS --max-time {{ harden_health_probe_timeout | default(10) | int }} "{{ url }}" >/dev/null; then
+        PROBLEMS+=("probe failed: {{ url }}")
+      fi
+      {% endfor %}
+
+      if [ "${#PROBLEMS[@]}" -eq 0 ]; then
+        exit 0
+      fi
+
+      BODY="$(printf '%s\n' "${PROBLEMS[@]}")"
+      logger -t nowo-health-watchdog "${BODY}"
+      {% if harden_health_watchdog_mail | default(true) | bool %}
+      printf '%s\n' "${BODY}" | mail -s "[$(hostname -f)] health watchdog" "${MAILTO}" || true
+      {% endif %}
+      exit 1
+
+- name: Schedule health watchdog cron
+  when: harden_enable_health_watchdog | default(false) | bool
+  ansible.builtin.copy:
+    dest: /etc/cron.d/nowo-health-watchdog
+    mode: "0644"
+    owner: root
+    group: root
+    content: |
+      # Managed by LinuxServerHardening
+      SHELL=/bin/bash
+      PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+      {{ harden_health_watchdog_cron | default('*/5 * * * *') }} root /usr/local/sbin/nowo-health-watchdog >/dev/null 2>&1
+
+- name: Remove health watchdog when disabled
+  when: not (harden_enable_health_watchdog | default(false) | bool)
+  block:
+    - name: Remove health watchdog cron
+      ansible.builtin.file:
+        path: /etc/cron.d/nowo-health-watchdog
+        state: absent
+
+    - name: Remove health watchdog script
+      ansible.builtin.file:
+        path: /usr/local/sbin/nowo-health-watchdog
+        state: absent

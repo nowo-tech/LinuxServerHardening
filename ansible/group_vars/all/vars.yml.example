@@ -75,6 +75,27 @@ harden_enable_aide: false
 harden_enable_logwatch: true
 harden_enable_mfa_role: false
 harden_enable_lynis_mail_report: true
+
+# Monitoring stack (role always runs — false stops/uninstalls idempotently)
+harden_enable_node_exporter: false
+harden_node_exporter_listen: "127.0.0.1:9100"
+# Remote scrape is opt-in; prefer SSH tunnel / VPN
+harden_node_exporter_ufw_allow: false
+harden_node_exporter_allow_from:
+  - any
+
+harden_enable_health_watchdog: false
+harden_health_disk_threshold_pct: 90
+harden_health_watchdog_cron: "*/5 * * * *"
+harden_health_watchdog_mail: true
+harden_health_probe_urls: []
+harden_health_probe_timeout: 10
+
+harden_enable_monit: false
+harden_monit_daemon_seconds: 120
+harden_monit_load_1min: 8
+harden_monit_memory_pct: 90
+harden_monit_cpu_pct: 95
 # Lynis on every harden run is slow; 03-audit.yml forces a run
 harden_lynis_force_run: false
 # Third-party Lynis APT repo is OFF by default (supply-chain gate)

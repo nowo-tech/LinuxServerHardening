@@ -19,3 +19,7 @@ harden_fail2ban_require_ignoreip: true
 harden_fail2ban_ignoreip: "REPLACE_ME_ADMIN_CIDR"
 harden_ssh_keys_exclusive: true
 harden_ssh_use_dns: "no"
+# Monitoring opt-in (false = ensure stopped/removed)
+harden_enable_node_exporter: false
+harden_enable_health_watchdog: false
+harden_enable_monit: false

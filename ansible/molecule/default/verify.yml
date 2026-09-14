@@ -152,3 +152,60 @@
         that:
           - lynis_report.stat.exists
         fail_msg: Expected /var/log/lynis-report.dat after harden_lynis_force_run
+
+    - name: node_exporter package present
+      ansible.builtin.command: dpkg -s prometheus-node-exporter
+      changed_when: false
+
+    - name: node_exporter is active
+      ansible.builtin.command: systemctl is-active prometheus-node-exporter
+      changed_when: false
+
+    - name: node_exporter metrics endpoint responds locally
+      ansible.builtin.command: curl -fsS --max-time 5 http://127.0.0.1:9100/metrics
+      register: node_metrics
+      changed_when: false
+
+    - name: Require node metrics payload
+      ansible.builtin.assert:
+        that:
+          - "'node_' in node_metrics.stdout"
+
+    - name: Health watchdog script installed
+      ansible.builtin.stat:
+        path: /usr/local/sbin/nowo-health-watchdog
+      register: watchdog
+
+    - name: Require watchdog script and cron
+      ansible.builtin.assert:
+        that:
+          - watchdog.stat.exists
+          - watchdog.stat.mode == '0755'
+
+    - name: Health watchdog cron present
+      ansible.builtin.stat:
+        path: /etc/cron.d/nowo-health-watchdog
+      register: watchdog_cron
+
+    - name: Require watchdog cron
+      ansible.builtin.assert:
+        that:
+          - watchdog_cron.stat.exists
+
+    - name: Monit package present
+      ansible.builtin.command: dpkg -s monit
+      changed_when: false
+
+    - name: Monit is active
+      ansible.builtin.command: systemctl is-active monit
+      changed_when: false
+
+    - name: Monit nowo config present
+      ansible.builtin.stat:
+        path: /etc/monit/conf.d/nowo-hardening
+      register: monit_conf
+
+    - name: Require Monit config
+      ansible.builtin.assert:
+        that:
+          - monit_conf.stat.exists

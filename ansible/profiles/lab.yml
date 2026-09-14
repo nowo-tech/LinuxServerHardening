@@ -13,3 +13,7 @@ harden_psad_auto_ids: false
 # Lab may run without a fixed admin CIDR
 harden_fail2ban_require_ignoreip: false
 harden_strict_ops: false
+# Optional monitoring — false on next run uninstalls/stops idempotently
+harden_enable_node_exporter: true
+harden_enable_health_watchdog: true
+harden_enable_monit: true

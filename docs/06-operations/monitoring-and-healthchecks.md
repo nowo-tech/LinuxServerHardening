@@ -6,115 +6,95 @@ A hardened host that is **down**, **disk-full**, or **silently dropping mail** l
 
 ## Do
 
-Treat monitoring as a **layer beside** this kit, not inside Ansible by default. Wire three loops:
+### Ansible toggles (idempotent install / stop / remove)
+
+The `monitoring_stack` role **always** runs on harden. Each tool is independent:
+
+| Variable | Default | When `true` | When `false` |
+|----------|---------|-------------|--------------|
+| `harden_enable_node_exporter` | `false` | Install + start `prometheus-node-exporter` | Stop + purge package |
+| `harden_enable_health_watchdog` | `false` | Install cron + `/usr/local/sbin/nowo-health-watchdog` | Remove script + cron |
+| `harden_enable_monit` | `false` | Install + start Monit with baseline checks | Stop + purge + remove drop-ins |
+
+Lab profile turns all three **on**; prod leaves them **off** until you opt in.
+
+```bash
+# Enable metrics + watchdog only
+ansible-playbook -i inventories/prod/hosts.yml playbooks/02-harden.yml \
+  --ask-vault-pass -e @profiles/prod.yml --tags monitoring \
+  -e harden_enable_node_exporter=true \
+  -e harden_enable_health_watchdog=true \
+  -e harden_enable_monit=false
+
+# Later: uninstall node_exporter (idempotent)
+ansible-playbook ... --tags node_exporter -e @profiles/prod.yml \
+  -e harden_enable_node_exporter=false
+```
+
+**node_exporter defaults:** listen `127.0.0.1:9100`. Set `harden_node_exporter_ufw_allow: true` and `harden_node_exporter_allow_from` only if a remote scraper must pull.
+
+**Health watchdog:** disk % (`harden_health_disk_threshold_pct`), `systemctl --failed`, optional `harden_health_probe_urls`, mails via `harden_mail_to` when `harden_health_watchdog_mail: true`.
+
+**Monit:** system/load/memory/cpu, root filesystem, `sshd` on `harden_ssh_port`, and node_exporter when that flag is on. SMTP uses the same host/auth knobs as msmtp (`harden_smtp_*` + vault password).
+
+Tags: `monitoring`, `metrics`, `node_exporter`, `health`, `health_watchdog`, `monit`.
 
 ```mermaid
 flowchart LR
-  subgraph host["On the host"]
-    H1[systemd / app health]
-    H2[node metrics]
-    H3[local mail / logwatch]
+  subgraph host["On the host (Ansible)"]
+    H1[health_watchdog]
+    H2[node_exporter]
+    H3[Monit]
   end
   subgraph edge["Outside the host"]
     E1[Uptime / HTTP probe]
-    E2[Central metrics / logs]
+    E2[Prometheus / Grafana]
   end
-  H1 --> E1
+  H1 --> Mail[msmtp alerts]
+  H3 --> Mail
   H2 --> E2
-  H3 --> E2
+  E1 --> App[Your /healthz]
 ```
 
-### 1) Uptime / black-box healthchecks (outside)
+### External uptime probes (still operator-owned)
 
-Probe from a **different network** than the server (SaaS uptime, a second VPS, or your CI runner with egress).
+Probe from a **different network** than the server. Allowlist probe CIDRs in Fail2Ban `ignoreip`.
 
 | Check | Example | Notes after hardening |
 |-------|---------|------------------------|
 | TCP open | `nc -zv HOST 443` | Only ports you **allow in** UFW |
 | TLS + HTTP | `curl -fsS https://HOST/healthz` | App must expose a cheap path |
-| SSH reachability | optional | Prefer **not** to probe SSH from the public Internet every minute |
 
-Allowlist the probe source in Fail2Ban `ignoreip` and (if used) CrowdSec allowlists — same discipline as admin/VPN CIDRs.
-
-Minimal self-hosted cron on a **watcher** box:
-
-```bash
-# /etc/cron.d/nowo-health-probe  (runs elsewhere, not on the target)
-*/5 * * * * root curl -fsS --max-time 10 https://app.example.com/healthz >/dev/null \
-  || echo "healthz failed $(date -u)" | mail -s "UPTIME app.example.com" security@example.com
-```
-
-### 2) On-host health (systemd / app)
-
-Prefer unit-native checks over bespoke scripts when the app is a systemd service:
-
-```ini
-# drop-in fragment idea — adjust ExecStart to your stack
-[Service]
-Restart=on-failure
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-```
-
-For containers or reverse proxies, expose `/healthz` or `/ready` that:
-
-- Does **not** require auth
-- Does **not** touch the database on every probe if a lighter liveness check exists
-- Returns non-200 when dependencies you care about are dead (readiness vs liveness)
-
-### 3) Metrics (optional, documented pattern)
-
-If you run a metrics agent (Prometheus `node_exporter`, Netdata, Datadog agent, etc.):
-
-1. Bind it to `127.0.0.1` **or** an admin VLAN — never `0.0.0.0` without auth.
-2. Add an **explicit** UFW allow only if a remote scraper must pull (prefer push / VPN).
-3. Re-test after `hidepid` / sysctl hardening — some agents break (see [kernel-and-sysctl](../04-host-baseline/kernel-and-sysctl.md)).
-4. Put scraper IPs in Fail2Ban `ignoreip` if they hit SSH or auth endpoints.
-
-Example bind for node_exporter (illustrative):
-
-```bash
-# Listen locally; scrape via SSH tunnel or reverse proxy with auth
-node_exporter --web.listen-address=127.0.0.1:9100
-```
-
-### 4) What this kit already pushes (do not duplicate blindly)
-
-| Signal | Source in this kit | Monitoring angle |
-|--------|--------------------|------------------|
-| Auth abuse | Fail2Ban mail | Keep; add rate dashboards if volume grows |
-| Scan noise | PSAD / iptables log | Tune danger levels before paging humans |
-| Package drift | unattended-upgrades / apticron | Alert on **failure**, not every success |
-| Integrity | AIDE / rkhunter mail | Page on unexpected diffs only |
-| Audit trail | auditd + logwatch | Digest is enough for small fleets |
-
-### Minimum “production beyond harden” checklist
+### Minimum production checklist
 
 ```text
-[ ] External HTTP(S) or TCP probe with alert path tested once
-[ ] Probe CIDRs in Fail2Ban ignoreip (and UFW if needed)
-[ ] Disk / inode alert (df -h; agent or cron)
-[ ] systemd failed units visible (systemctl --failed)
-[ ] Mail path still delivers (kit msmtp test + monitoring of bounce)
-[ ] Backup job success signal (out of band — not this repo)
+[ ] Decide which of node_exporter / watchdog / monit are enabled
+[ ] External HTTP(S) probe with alert path tested once
+[ ] Probe / scrape CIDRs in Fail2Ban ignoreip
+[ ] node_exporter not on 0.0.0.0 without auth or UFW allowlist
+[ ] Backup job success signal (out of band)
 ```
 
 ## Why
 
-Hardening reduces **how** you get owned. Monitoring reduces **how long** you stay broken or blind. Separating the two keeps this repository teachable and avoids shipping a second product (observability stack) inside Ansible.
+Hardening reduces **how** you get owned. Monitoring reduces **how long** you stay broken or blind. Shipping these as **opt-in flags** keeps the default baseline small while letting operators enable, disable, or uninstall without hand-editing packages.
 
 ## Verify
 
-1. Stop the app service (lab only) → external healthcheck fires within your interval.
-2. Restore service → alert clears.
-3. Confirm the probe IP never appears in `fail2ban-client status sshd` bans.
-4. `systemctl --failed` is empty on a healthy host.
+```bash
+systemctl is-active prometheus-node-exporter   # if enabled
+curl -s http://127.0.0.1:9100/metrics | head
+systemctl is-active monit                     # if enabled
+monit status
+ls /usr/local/sbin/nowo-health-watchdog       # if enabled
+# After setting flags to false and re-running --tags monitoring:
+dpkg -s prometheus-node-exporter monit        # should be absent
+test ! -e /usr/local/sbin/nowo-health-watchdog
+```
 
 ## Rollback
 
-Disable or delete the external monitor check; remove temporary UFW allows for scrapers; stop local exporters. Host hardening plays do not own these components.
+Set the corresponding `harden_enable_*` to `false` and re-run the harden play (or `--tags monitoring`). Do not leave half-purged units; the role stops services before purge.
 
 ## Next
 

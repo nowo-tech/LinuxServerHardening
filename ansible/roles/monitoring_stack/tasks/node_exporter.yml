@@ -1,0 +1,69 @@
+---
+- name: Install or remove prometheus-node-exporter
+  ansible.builtin.apt:
+    name: prometheus-node-exporter
+    state: "{{ 'present' if (harden_enable_node_exporter | default(false) | bool) else 'absent' }}"
+    purge: "{{ not (harden_enable_node_exporter | default(false) | bool) }}"
+    autoremove: "{{ not (harden_enable_node_exporter | default(false) | bool) }}"
+
+- name: Configure node_exporter listen address
+  when: harden_enable_node_exporter | default(false) | bool
+  ansible.builtin.copy:
+    dest: /etc/default/prometheus-node-exporter
+    mode: "0644"
+    content: |
+      # Managed by LinuxServerHardening — bind locally unless you opt into remote scrape
+      ARGS="--web.listen-address={{ harden_node_exporter_listen | default('127.0.0.1:9100') }}"
+  notify: Restart prometheus-node-exporter
+
+- name: Ensure node_exporter is started and enabled
+  when: harden_enable_node_exporter | default(false) | bool
+  ansible.builtin.service:
+    name: prometheus-node-exporter
+    state: started
+    enabled: true
+
+- name: Stop and disable node_exporter when present but disabled
+  when: not (harden_enable_node_exporter | default(false) | bool)
+  block:
+    - name: Check whether node_exporter unit exists
+      ansible.builtin.stat:
+        path: /lib/systemd/system/prometheus-node-exporter.service
+      register: node_exporter_unit
+
+    - name: Stop node_exporter before purge completes
+      when: node_exporter_unit.stat.exists
+      ansible.builtin.service:
+        name: prometheus-node-exporter
+        state: stopped
+        enabled: false
+      failed_when: false
+
+- name: Allow remote scrape of node_exporter in UFW when opted in
+  when:
+    - harden_enable_node_exporter | default(false) | bool
+    - harden_node_exporter_ufw_allow | default(false) | bool
+  community.general.ufw:
+    rule: allow
+    direction: in
+    port: "{{ harden_node_exporter_listen.split(':')[-1] | default('9100') }}"
+    proto: tcp
+    from_ip: "{{ item }}"
+    comment: "node_exporter scrape"
+  loop: "{{ harden_node_exporter_allow_from | default(['any']) }}"
+  notify: Reload ufw
+
+- name: Remove node_exporter UFW allows when disabled or remote scrape off
+  when: >-
+    (not (harden_enable_node_exporter | default(false) | bool))
+    or (not (harden_node_exporter_ufw_allow | default(false) | bool))
+  community.general.ufw:
+    rule: allow
+    direction: in
+    port: "{{ (harden_node_exporter_listen | default('127.0.0.1:9100')).split(':')[-1] }}"
+    proto: tcp
+    from_ip: "{{ item }}"
+    delete: true
+  loop: "{{ harden_node_exporter_allow_from | default(['any']) }}"
+  failed_when: false
+  notify: Reload ufw

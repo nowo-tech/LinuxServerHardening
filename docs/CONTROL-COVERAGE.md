@@ -64,7 +64,10 @@ flowchart TB
 | AIDE integrity | D | F | `aide.db.new` → `aide.db` |
 | auditd identity watches | D | A | Focused rules |
 | logwatch digests | D | A | |
-| Monitoring / uptime healthchecks | D | — | External probes + local patterns; not automated |
+| Monitoring / uptime healthchecks | D | F | External probes D; on-host stack F via flags |
+| node_exporter | D | F | `harden_enable_node_exporter` (false → purge) |
+| Health watchdog | D | F | `harden_enable_health_watchdog` (false → remove) |
+| Monit | D | F | `harden_enable_monit` (false → purge) |
 | CI/CD deploy contract | D | — | Runner ignoreip, hardened SSH, health gates |
 | Lynis via `03-audit.yml` | D | A | Debian packages by default |
 | Third-party Lynis APT repo | D | F | Supply-chain opt-in |
@@ -82,13 +85,15 @@ flowchart TB
 | `harden_fail2ban_require_ignoreip` | `true` | `false` |
 | `harden_strict_ops` | `true` | `false` |
 | `harden_enable_clamav` / `aide` / `chkrootkit` | `false` | `true` |
+| `harden_enable_node_exporter` / `health_watchdog` / `monit` | `false` | `true` |
 | `harden_ssh_keys_exclusive` | `false` (prod profile `true`) | often `false` until cutover |
 
 ## Residual risks
 
 - Focused auditd rules are not a full enterprise syscall pack.
 - CrowdSec, Docker+UFW, and AppArmor remain **documented only** (operator design; not automated).
-- Monitoring stacks and product CI/CD are **documented contracts** only — this kit’s GitHub Actions lint/Molecule; your uptime probes and deploy pipelines stay yours.
+- Monitoring: **node_exporter / health_watchdog / Monit** are Ansible **opt-in** (`harden_enable_*`); external SaaS uptime and full Prometheus/Grafana stay operator-owned.
+- Product CI/CD remains a **documented contract** — this kit’s GitHub Actions lint/Molecule; your deploy pipelines stay yours.
 - Molecule exercises a **local SMTP sink**, **seeded TOTP → MFA enforce**, and **`lynis audit system --quick`** — not a production SMTP provider or interactive phone enrolment.
 - Physical/console threats remain operator-owned.
 - Application security is out of scope.

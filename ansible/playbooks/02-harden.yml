@@ -117,5 +117,7 @@
     - role: log_digest
       tags: [logwatch]
       when: harden_enable_logwatch | bool
+    - role: monitoring_stack
+      tags: [monitoring, metrics, health, monit, node_exporter, health_watchdog]
     - role: security_audit
       tags: [lynis]

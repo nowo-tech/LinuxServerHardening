@@ -37,6 +37,13 @@
     harden_smtp_tls: false
     harden_smtp_auth: false
     harden_skip_mail_test: false
+    harden_enable_node_exporter: true
+    harden_node_exporter_listen: "127.0.0.1:9100"
+    harden_node_exporter_ufw_allow: false
+    harden_enable_health_watchdog: true
+    harden_health_watchdog_mail: false
+    harden_health_probe_urls: []
+    harden_enable_monit: true
     vault_admin_password: "MoleculeTestPassw0rd!"
     vault_smtp_password: "MoleculeSmtpPassw0rd!"
     harden_packages:
@@ -88,6 +95,7 @@
     - role: ssh_mfa
     - role: firewall_stack
     - role: outbound_mail
+    - role: monitoring_stack
     - role: security_audit
 
 - name: Converge — enforce MFA after seeded TOTP enrolment
@@ -125,3 +133,71 @@
   roles:
     - role: ssh_hardening
     - role: ssh_mfa
+
+- name: Converge — prove monitoring disable uninstalls idempotently
+  hosts: all
+  become: true
+  gather_facts: false
+  vars:
+    harden_enable_node_exporter: false
+    harden_enable_health_watchdog: false
+    harden_enable_monit: false
+    harden_node_exporter_listen: "127.0.0.1:9100"
+    harden_node_exporter_ufw_allow: false
+    harden_node_exporter_allow_from:
+      - any
+    harden_mail_to: molecule@example.com
+    harden_mail_from: molecule@example.com
+    harden_smtp_host: 127.0.0.1
+    harden_smtp_port: 2525
+    harden_smtp_tls: false
+    harden_smtp_auth: false
+    vault_smtp_password: "MoleculeSmtpPassw0rd!"
+    harden_ssh_port: 2222
+  roles:
+    - role: monitoring_stack
+  tasks:
+    - name: node_exporter must be removed
+      ansible.builtin.command: dpkg -s prometheus-node-exporter
+      register: ne_pkg
+      changed_when: false
+      failed_when: ne_pkg.rc == 0
+
+    - name: Watchdog script must be absent
+      ansible.builtin.stat:
+        path: /usr/local/sbin/nowo-health-watchdog
+      register: wd
+
+    - name: Require watchdog gone
+      ansible.builtin.assert:
+        that:
+          - not wd.stat.exists
+
+    - name: Monit must be removed
+      ansible.builtin.command: dpkg -s monit
+      register: monit_pkg
+      changed_when: false
+      failed_when: monit_pkg.rc == 0
+
+- name: Converge — re-enable monitoring for final verify
+  hosts: all
+  become: true
+  gather_facts: false
+  vars:
+    harden_enable_node_exporter: true
+    harden_node_exporter_listen: "127.0.0.1:9100"
+    harden_node_exporter_ufw_allow: false
+    harden_enable_health_watchdog: true
+    harden_health_watchdog_mail: false
+    harden_health_probe_urls: []
+    harden_enable_monit: true
+    harden_mail_to: molecule@example.com
+    harden_mail_from: molecule@example.com
+    harden_smtp_host: 127.0.0.1
+    harden_smtp_port: 2525
+    harden_smtp_tls: false
+    harden_smtp_auth: false
+    vault_smtp_password: "MoleculeSmtpPassw0rd!"
+    harden_ssh_port: 2222
+  roles:
+    - role: monitoring_stack

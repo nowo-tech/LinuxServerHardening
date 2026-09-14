@@ -56,6 +56,7 @@ flowchart TD
 | ClamAV / AIDE / chkrootkit | Often on | Opt-in by load |
 | Default-deny egress | Recommended | Required if you can list needed ports |
 | Harden as root inventory | Refused (override only) | Refused |
+| node_exporter / health_watchdog / Monit | On (lab profile) | Off until opted in |
 
 ## What “good enough” looks like after day one
 

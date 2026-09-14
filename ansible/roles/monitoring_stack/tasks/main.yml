@@ -1,0 +1,15 @@
+---
+# Optional monitoring stack — always applied so enable=false can stop/uninstall.
+# Tags: monitoring, metrics, health, monit
+
+- name: Manage Prometheus node_exporter
+  ansible.builtin.include_tasks: node_exporter.yml
+  tags: [monitoring, metrics, node_exporter]
+
+- name: Manage local health watchdog
+  ansible.builtin.include_tasks: health_watchdog.yml
+  tags: [monitoring, health, health_watchdog]
+
+- name: Manage Monit
+  ansible.builtin.include_tasks: monit.yml
+  tags: [monitoring, monit]
